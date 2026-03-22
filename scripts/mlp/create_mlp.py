@@ -4,37 +4,38 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import h5py
+import logging
+import json
+from sklearn.metrics import matthews_corrcoef
 
-DATA_DIR = "/home/matijens/esmc/data/embeddings"
-OUTPUT_DIR = "data/new_features"
-MODELS_DIR = "/home/matijens/esmc/models"
-HIDDEN_DIM = 256
-OUT_DIM = 64
-DROPOUT = 0.3
-LR = 1e-3
-EPOCHS = 100
-BATCH_SIZE = 64
-PATIENCE = 15
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 
 class CreateMLP(nn.Module):
     def __init__(
         self,
+        input_path: str,
+        output_path: str,
         input_dim: int = 1152,
         hidden_dims: list = [512, 256],
         dropout: float = 0.3,
         lr: float = 1e-4,
         weight_decay: float = 1e-3,
         batch_size: int = 128,
-        optimizer: str = "AdamW",
         epochs: int = 50,
         patience: int = 8,
     ):
         super().__init__()
+        self.input_path = input_path
+        self.output_path = output_path
         self.lr = lr
         self.weight_decay = weight_decay
         self.batch_size = batch_size
-        self.optimizer = optimizer
         self.epochs = epochs
         self.patience = patience
 
@@ -50,7 +51,7 @@ class CreateMLP(nn.Module):
             nn.Linear(hidden_dims[1], 1),
         )
 
-    def _load_split(self, positive_file, negative_file):
+    def _load_files(self, positive_file, negative_file):
         with h5py.File(positive_file, "r") as f:
             pos_emb = []
             for key in f.keys():
@@ -65,90 +66,113 @@ class CreateMLP(nn.Module):
         y = np.array([1] * len(pos_emb) + [0] * len(neg_emb))
         return X, y
 
+    def _create_splits(self):
+        with open(self.input_path) as f:
+            splits = json.load(f)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-input_dim = X_train.shape[1]
+            self.X_train, self.y_train = self._load_files(
+                splits["train"]["positive"], splits["train"]["negative"]
+            )
+            self.X_val, self.y_val = self._load_files(
+                splits["val"]["positive"], splits["val"]["negative"]
+            )
+            self.X_test, self.y_test = self._load_files(
+                splits["test"]["positive"], splits["test"]["negative"]
+            )
 
-net = nn.Sequential(
-    nn.Linear(input_dim, HIDDEN_DIM),
-    nn.BatchNorm1d(HIDDEN_DIM),
-    nn.ReLU(),
-    nn.Dropout(DROPOUT),
-    nn.Linear(HIDDEN_DIM, OUT_DIM),
-)
-head = nn.Linear(OUT_DIM, 2)
-model = nn.Sequential(net, head).to(device)
+    @torch.no_grad()
+    def _evaluate(self, loader, device):
+        self.eval()
+        all_logits, all_labels = [], []
 
-dl = DataLoader(
-    TensorDataset(
-        torch.tensor(X_train, dtype=torch.float32),
-        torch.tensor(y_train, dtype=torch.long),
-    ),
-    batch_size=BATCH_SIZE,
-    shuffle=True,
-)
-vX = torch.tensor(X_val, dtype=torch.float32).to(device)
-vy = torch.tensor(y_val, dtype=torch.long).to(device)
+        for X_batch, y_batch in loader:
+            X_batch = X_batch.to(device)
+            logits = self.network(X_batch).squeeze(-1)
+            all_logits.append(logits.cpu())
+            all_labels.append(y_batch)
 
-opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
-loss_fn = nn.CrossEntropyLoss()
+        all_logits = torch.cat(all_logits)
+        all_labels = torch.cat(all_labels)
+        preds = (torch.sigmoid(all_logits) >= 0.5).int().numpy()
+        labels = all_labels.int().numpy()
 
-best_loss, best_state, wait = float("inf"), None, 0
+        return matthews_corrcoef(labels, preds)
 
-for ep in range(EPOCHS):
-    model.train()
-    for xb, yb in dl:
-        xb, yb = xb.to(device), yb.to(device)
-        opt.zero_grad()
-        loss_fn(model(xb), yb).backward()
-        opt.step()
+    def _save_encoder(self):
+        encoder = nn.Sequential(*list(self.network.children())[:-2])
+        encoder_path = os.path.join(self.output_path, "encoder.pt")
+        torch.save(encoder.state_dict(), encoder_path)
+        logger.info(f"Encoder saved to {encoder_path}")
 
-    model.eval()
-    with torch.no_grad():
-        vl = loss_fn(model(vX), vy).item()
+    def train_model(self):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.to(device)
+        self._create_splits()
 
-    if vl < best_loss:
-        best_loss, best_state, wait = (
-            vl,
-            {k: v.cpu().clone() for k, v in model.state_dict().items()},
-            0,
+        train_loader = DataLoader(
+            TensorDataset(
+                torch.from_numpy(self.X_train), torch.from_numpy(self.y_train).float()
+            ),
+            batch_size=self.batch_size,
+            shuffle=True,
         )
-    else:
-        wait += 1
-        if wait >= PATIENCE:
-            break
+        val_loader = DataLoader(
+            TensorDataset(
+                torch.from_numpy(self.X_val), torch.from_numpy(self.y_val).float()
+            ),
+            batch_size=self.batch_size,
+        )
 
-model.load_state_dict(best_state)
-model.eval()
-net.cpu()
+        n_pos = self.y_train.sum()
+        n_neg = len(self.y_train) - n_pos
+        pos_weight = torch.tensor([n_neg / n_pos], device=device)
 
-# === ZAPIS CHECKPOINTU MLP ===
-os.makedirs(MODELS_DIR, exist_ok=True)
-torch.save(
-    {
-        "state_dict": net.state_dict(),
-        "input_dim": input_dim,
-        "hidden_dim": HIDDEN_DIM,
-        "out_dim": OUT_DIM,
-        "dropout": DROPOUT,
-    },
-    os.path.join(MODELS_DIR, "mlp.pt"),
-)
-print(f"Saved MLP checkpoint: {MODELS_DIR}/mlp.pt")
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        optimizer = torch.optim.AdamW(
+            self.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="max",
+            factor=0.5,
+            patience=3,
+        )
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+        best_val_mcc = -1.0
+        best_state = None
+        epochs_no_improve = 0
 
-for split, pos_ids, neg_ids, X in [
-    ("train", pos_train_ids, neg_train_ids, X_train),
-    ("val", pos_val_ids, neg_val_ids, X_val),
-    ("test", pos_test_ids, neg_test_ids, X_test),
-]:
-    n_pos = len(pos_ids)
-    with torch.no_grad():
-        features = net(torch.tensor(X, dtype=torch.float32)).numpy()
+        for epoch in range(1, self.epochs + 1):
+            self.train()
+            train_loss = 0.0
+            for X_batch, y_batch in train_loader:
+                X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+                optimizer.zero_grad()
+                logits = self.network(X_batch).squeeze(-1)
+                loss = criterion(logits, y_batch)
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item() * len(y_batch)
+            train_loss /= len(train_loader.dataset)
 
-    pos_out = {sid: torch.tensor(features[i]) for i, sid in enumerate(pos_ids)}
-    neg_out = {sid: torch.tensor(features[n_pos + i]) for i, sid in enumerate(neg_ids)}
+            val_mcc = self._evaluate(val_loader, device)
+            scheduler.step(val_mcc)
 
-    torch.save(pos_out, os.path.join(OUTPUT_DIR, f"positive_{split}.pt"))
-    torch.save(neg_out, os.path.join(OUTPUT_DIR, f"negative_{split}.pt"))
+            logger.info(
+                f"Epoch {epoch:3d}/{self.epochs} │ "
+                f"train_loss: {train_loss:.4f} │ val_mcc: {val_mcc:.4f}"
+            )
+
+            if val_mcc > best_val_mcc:
+                best_val_mcc = val_mcc
+                best_state = self.state_dict().copy()
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+                if epochs_no_improve >= self.patience:
+                    logger.info(f"Early stopping at epoch {epoch}.")
+                    break
+
+        self.load_state_dict(best_state)
+        logger.info(f"Best val_mcc: {best_val_mcc:.4f})")
+        self._save_encoder()

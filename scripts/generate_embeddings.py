@@ -135,6 +135,8 @@ class EmbeddingsGenerator:
                                 data=embedding.numpy(),
                                 dtype=np.float16,
                                 compression="gzip",
+                                compression_opts=9,
+                                shuffle=True,
                             )
 
                         del input_ids, output, batch_embeddings

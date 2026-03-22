@@ -2,7 +2,6 @@ import gc
 import numpy as np
 import h5py
 import matplotlib
-from umap import UMAP
 import plotly.graph_objects as go
 import argparse
 import os
@@ -79,8 +78,12 @@ class EmbeddingsVisualizer:
         )
         del all_embeddings
         gc.collect()
+        logger.info(f"Loaded {len(self.labeled_embeddings['embedding'])} embeddings")
 
     def _umap_reduce_cpu(self):
+        logger.info("Using UMAP CPU")
+        from umap import UMAP
+
         seed = 42
         rng = np.random.RandomState(seed)
 
@@ -121,6 +124,7 @@ class EmbeddingsVisualizer:
             )
 
     def _umap_reduce_gpu(self):
+        logger.info("Using UMAP GPU")
         try:
             from cuml.manifold import UMAP
             import cupy as cp
@@ -170,11 +174,13 @@ class EmbeddingsVisualizer:
         plt.xlabel("UMAP 1")
         plt.ylabel("UMAP 2")
         plt.title(f"{self.title} 2D")
-        plt.legend()
+        plt.legend(markerscale=3, bbox_to_anchor=(1.05, 1), loc="upper left")
+        plt.tight_layout()
 
         plot_path = os.path.join(self.output_path, "plot_2d.png")
         plt.savefig(plot_path)
         plt.close()
+        logger.info(f"2D plot saved under {plot_path}")
 
     def _plot_3d(self):
         fig = plt.figure()
@@ -197,11 +203,13 @@ class EmbeddingsVisualizer:
         ax.set_ylabel("UMAP 2")
         ax.set_zlabel("UMAP 3")
         ax.set_title(f"{self.title} 3D")
-        ax.legend()
+        ax.legend(markerscale=3, bbox_to_anchor=(1.15, 1), loc="upper left")
+        plt.tight_layout()
 
         plot_path = os.path.join(self.output_path, "plot_3d.png")
         plt.savefig(plot_path)
         plt.close()
+        logger.info(f"3D plot saved under {plot_path}")
 
     def _interactive_plot(self):
         plotly_fig = go.Figure()
@@ -234,6 +242,7 @@ class EmbeddingsVisualizer:
         )
         plot_path = os.path.join(self.output_path, "plot_interactive.html")
         plotly_fig.write_html(plot_path)
+        logger.info(f"Interactive plot saved under {plot_path}")
 
     def visualize(self):
         """Main method that load data and create 2D, 3D and 3D-interactive plot."""

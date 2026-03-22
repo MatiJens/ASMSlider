@@ -24,6 +24,6 @@ apptainer exec --nv \
     python /mnt/scripts/visualize_embeddings.py \
         --config /mnt/lustre/embedding/mean_pooling/config.json \
         -o /mnt/lustre/embedding/mean_pooling/plots \
-        --use-gpu
+        --use-gpu --title "Visualization of mean-pooling ESMC embeddings"
 
 echo "Job finished at $(date)"

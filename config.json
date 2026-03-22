@@ -1,0 +1,5 @@
+{
+    "train": {"positive": "/mnt/lustre/embedding/mean_pooling/positive_train.h5", "negative": "/mnt/lustre/embedding/mean_pooling/negative_train.h5"},
+    "val":   {"positive": "/mnt/lustre/embedding/mean_pooling/positive_val.h5",   "negative": "/mnt/lustre/embedding/mean_pooling/negative_val.h5"},
+    "test":  {"positive": "/mnt/lustre/embedding/mean_pooling/positive_test.h5",  "negative": "/mnt/lustre/embedding/mean_pooling/negative_test.h5"}
+}
