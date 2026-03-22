@@ -1,0 +1,8 @@
+[
+  {"path": "/home/matijens/pd-hpc-fi2/mjens/embedding/max_pooling/negative_train.pt", "color": "#FF0000", "label": "negative_train"},
+  {"path": "/home/matijens/pd-hpc-fi2/mjens/embedding/max_pooling/negative_val.pt", "color": "#CC0000", "label": "negative_val"},
+  {"path": "/home/matijens/pd-hpc-fi2/mjens/embedding/max_pooling/negative_test.pt", "color": "#FF3333", "label": "negative_test"},
+  {"path": "/home/matijens/pd-hpc-fi2/mjens/embedding/max_pooling/positive_train.pt", "color": "#00FF00", "label": "positive_train"},
+  {"path": "/home/matijens/pd-hpc-fi2/mjens/embedding/max_pooling/positive_val.pt", "color": "#00CC00", "label": "positive_val"},
+  {"path": "/home/matijens/pd-hpc-fi2/mjens/embedding/max_pooling/positive_test.pt", "color": "#33FF33", "label": "positive_test"}
+]

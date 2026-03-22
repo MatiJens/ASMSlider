@@ -1,6 +1,6 @@
 import gc
 import numpy as np
-import torch
+import h5py
 import matplotlib
 from umap import UMAP
 import plotly.graph_objects as go
@@ -30,6 +30,7 @@ class EmbeddingsVisualizer:
         batch_size: int = 50000,
         plot_max: int = 100000,
         title: str = "Visualization of embeddings",
+        use_gpu: bool = False,
     ):
         self.config = config_path
         self.output_path = output_path
@@ -37,6 +38,7 @@ class EmbeddingsVisualizer:
         self.batch_size = batch_size
         self.plot_max = plot_max
         self.title = title
+        self.use_gpu = use_gpu
         os.makedirs(self.output_path, exist_ok=True)
 
     def _load_files(self):
@@ -55,16 +57,19 @@ class EmbeddingsVisualizer:
                 msg = f"Missing {missing} in {i} row"
                 logger.error(msg)
                 sys.exit(1)
-            if not entry["path"].endswith(".pt"):
-                msg = f"Embedding are not *.pt file in {i} row"
+            if not entry["path"].endswith(".h5"):
+                msg = f"Embedding are not *.h5 file in {i} row"
                 logger.error(msg)
                 sys.exit(1)
-            data = torch.load(entry["path"], map_location="cpu", weights_only=False)
-            for _, emb in data.items():
-                all_embeddings.append(emb.float().numpy())
-                all_labels.append(entry["label"])
-                all_colors.append(entry["color"])
-            del data
+            with h5py.File(entry["path"], "r") as f:
+                for key in f.keys():
+                    emb = f[key][()].astype(np.float32)
+                    if emb.ndim == 1:
+                        emb = emb[np.newaxis, :]
+                    for row in emb:
+                        all_embeddings.append(row)
+                        all_labels.append(entry["label"])
+                        all_colors.append(entry["color"])
             gc.collect()
 
         self.labeled_embeddings["label"] = np.array(all_labels)
@@ -75,7 +80,7 @@ class EmbeddingsVisualizer:
         del all_embeddings
         gc.collect()
 
-    def _umap_reduce(self):
+    def _umap_reduce_cpu(self):
         seed = 42
         rng = np.random.RandomState(seed)
 
@@ -114,6 +119,39 @@ class EmbeddingsVisualizer:
             self.coords_3d[start:end] = reducer_3d.transform(
                 self.labeled_embeddings["embedding"][start:end]
             )
+
+    def _umap_reduce_gpu(self):
+        try:
+            from cuml.manifold import UMAP
+            import cupy as cp
+        except ImportError:
+            logger.error(
+                "cuml/cupy not installed. Run without --use-gpu or install RAPIDS."
+            )
+            sys.exit(1)
+
+        seed = 42
+        rng = np.random.RandomState(seed)
+        n = len(self.labeled_embeddings["embedding"])
+        fit_n = min(self.subsample_fit, n)
+        fit_idx = rng.choice(n, fit_n, replace=False)
+
+        fit_data = cp.asarray(self.labeled_embeddings["embedding"][fit_idx])
+        all_data = cp.asarray(self.labeled_embeddings["embedding"])
+
+        umap_kwargs = dict(
+            n_neighbors=15,
+            metric="cosine",
+            random_state=seed,
+        )
+
+        reducer_2d = UMAP(n_components=2, **umap_kwargs)
+        reducer_2d.fit(fit_data)
+        self.coords_2d = reducer_2d.transform(all_data).get()
+
+        reducer_3d = UMAP(n_components=3, **umap_kwargs)
+        reducer_3d.fit(fit_data)
+        self.coords_3d = reducer_3d.transform(all_data).get()
 
     def _plot_2d(self):
         unique_labels = set(
@@ -200,7 +238,10 @@ class EmbeddingsVisualizer:
     def visualize(self):
         """Main method that load data and create 2D, 3D and 3D-interactive plot."""
         self._load_files()
-        self._umap_reduce()
+        if self.use_gpu:
+            self._umap_reduce_gpu()
+        else:
+            self._umap_reduce_cpu()
         self._plot_2d()
         self._plot_3d()
 
@@ -262,6 +303,11 @@ def create_parser():
         default="Visualization of embeddings",
         help="Custom title for plots.",
     )
+    parser.add_argument(
+        "--use-gpu",
+        action="store_true",
+        help="Use GPU-accelerated UMAP (requires cuml and cupy).",
+    )
     return parser
 
 
@@ -275,6 +321,7 @@ def main():
         batch_size=args.batch_size,
         plot_max=args.plot_max,
         title=args.title,
+        use_gpu=args.use_gpu,
     )
     visualizer.visualize()
 
