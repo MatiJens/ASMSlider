@@ -12,18 +12,18 @@
 
 LUSTRE_DIR="$HOME/pd-hpc-fi2/mjens"
 SIF_IMAGE="$LUSTRE_DIR/asmfinder.sif"
-SCRIPTS_DIR="$HOME/magisterka/scripts"
-OUTPUT_DIR="$LUSTRE_DIR/embedding/mean_pooling/plots"
+HOME_DIR="$HOME/magisterka"
+OUTPUT_DIR="$HOME_DIR/visualizations/pre_mlp"
 
 mkdir -p $OUTPUT_DIR
 
 apptainer exec --nv \
     --bind "$LUSTRE_DIR":/mnt/lustre \
-    --bind "$SCRIPTS_DIR":/mnt/scripts \
+    --bind "$HOME_DIR":/mnt/magisterka \
     "$SIF_IMAGE" \
-    python /mnt/scripts/visualize_embeddings.py \
-        --config /mnt/lustre/embedding/mean_pooling/config.json \
-        -o /mnt/lustre/embedding/mean_pooling/plots \
-        --use-gpu --title "Visualization of mean-pooling ESMC embeddings"
+    python /mnt/magisterka/scripts/visualize_embeddings.py \
+        --config /mnt/magisterka/configs/pre_mlp_config.json \
+        -o /mnt/magisterka/visualizations/pre_mlp \
+        --use-gpu --title "Visualization of pre-MLP ESMC embeddings"
 
 echo "Job finished at $(date)"

@@ -1,0 +1,8 @@
+[
+  {"path": "/mnt/lustre/embeddings/pre_mlp/positive/bass_ctm_motif_trn1.h5", "color": "green", "label": "positive_train"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/positive/bass_ctm_motif_val1.h5", "color": "green", "label": "positive_val"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/positive/bass_ntm_motif_test.h5", "color": "blue", "label": "positive_test"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/negative/PB40_1z20_clu50_val1.h5", "color": "red", "label": "negative_train"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/negative/PB40_1z20_clu50_trn1.h5", "color": "red", "label": "negative_val"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/negative/PB40_1z20_clu50_test.h5", "color": "red", "label": "negative_test"}
+]

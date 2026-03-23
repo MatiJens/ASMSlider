@@ -3,3 +3,4 @@ models--EvolutionaryScale--esmc-600m-2024-12/
 venv/
 .mypy_cache/
 asmfinder.tar
+embeddings/

@@ -1,0 +1,21 @@
+{
+    "train_1": {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_trn1.fa", "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_trn1.fa"},
+    "val_1":   {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_val1.fa",   "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_val1.fa"},
+
+    "train_2": {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_trn2.fa", "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_trn2.fa"},
+    "val_2":   {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_val2.fa",   "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_val2.fa"},
+
+    "train_3": {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_trn3.fa", "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_trn3.fa"},
+    "val_3":   {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_val3.fa",   "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_val3.fa"},
+
+    "train_4": {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_trn4.fa", "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_trn4.fa"},
+    "val_4":   {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_val4.fa",   "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_val4.fa"},
+
+    "train_5": {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_trn5.fa", "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_trn5.fa"},
+    "val_5":   {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_val5.fa",   "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_val5.fa"},
+
+    "train_6": {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_trn6.fa", "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_trn6.fa"},
+    "val_6":   {"positive": "/mnt/lustre/data/positive/bass_ctm_motif_val6.fa",   "negative": "/mnt/lustre/data/negative/PB40_1z20_clu50_val6.fa"},
+
+    "test":  {"positive": "/mnt/lustre/data/positive/bass_ntm_motif_test.fa",  "negative": "/mnt/lustre/data/negative//PB40_1z20_clu50_test.fa"}
+}
