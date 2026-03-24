@@ -1,0 +1,7 @@
+{
+    "DisProt": {"negative": "/mnt/lustre/embeddings/pre_mlp/negative/DisProt_test.h5"},
+    "fass_ctm_val":   {"positive": "/mnt/lustre/embeddings/pre_mlp/positive/fass_ctm_motif_val.h5"},
+    "fass_ctm_test": {"positive": "/mnt/lustre/embeddings/pre_mlp/positive/fass_ctm_motif_test.h5"},
+    "fass_ntm_test":   {"positive": "/mnt/lustre/embeddings/pre_mlp/positive/fass_ntm_motif_tes.h5"}
+
+}

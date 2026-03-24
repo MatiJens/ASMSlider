@@ -1,0 +1,11 @@
+[
+  {"path": "/mnt/lustre/embeddings/pre_mlp/positive/bass_ctm_motif_trn1.h5", "color": "green", "label": "bass_ctm"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/positive/bass_ctm_motif_val1.h5", "color": "green", "label": "bass_ctm"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/positive/bass_ntm_motif_test.h5", "color": "blue", "label": "bass_ntm"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/negative/PB40_1z20_clu50_val1.h5", "color": "red", "label": "PB40"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/negative/PB40_1z20_clu50_trn1.h5", "color": "red", "label": "PB40"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/negative/PB40_1z20_clu50_test.h5", "color": "red", "label": "PB40"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/negative/DisProt_test.h5", "color": "orange", "label": "DisProt"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/positive/fass_ntm_motif_test.h5", "color": "purple", "label": "fass_ntm"},
+  {"path": "/mnt/lustre/embeddings/pre_mlp/positive/fass_ctm_motif_test.h5", "color": "brown", "label": "fass_ctm"}
+]
