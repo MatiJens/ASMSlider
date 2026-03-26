@@ -181,6 +181,24 @@ class EmbeddingsGenerator:
             self._process_batch(model, device, seq_list, h5f)
             logger.info(f"Saved to {output_file}")
 
+    def generate_from_list(self, sequences):
+        device, model = self._load_model()
+
+        all_embeddings = []
+        for i in range(0, len(sequences), self.batch_size):
+            batch_seqs = [
+                s[: self.max_length] for s in sequences[i : i + self.batch_size]
+            ]
+            raw_embeddings = self._generate_emb(model, device, batch_seqs)
+
+            for emb in raw_embeddings:
+                pooled = emb.mean(dim=0).cpu()
+                all_embeddings.append(pooled)
+
+            del raw_embeddings
+
+        return torch.stack(all_embeddings).float().numpy()
+
 
 def create_parser():
     parser = argparse.ArgumentParser(

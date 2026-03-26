@@ -1,7 +1,7 @@
 [
     ["/mnt/lustre/data/positive/bass_motif/bass_ntm_motif_test.fa", "/mnt/magisterka/results/positive", "bass_ntm"],
-    ["/mnt/lustre/data/positive/fass_motif/fass_ctm_motif_test.fa", "/mnt/magisterka/results/positive", "bass_ctm_test"],
-    ["/mnt/lustre/data/positive/fass_motif/fass_ctm_motif_val.fa", "/mnt/magisterka/results/positive", "bass_ctm_val"],
+    ["/mnt/lustre/data/positive/fass_motif/fass_ctm_motif_test.fa", "/mnt/magisterka/results/positive", "fass_ctm_test"],
+    ["/mnt/lustre/data/positive/fass_motif/fass_ctm_motif_val.fa", "/mnt/magisterka/results/positive", "fass_ctm_val"],
     ["/mnt/lustre/data/positive/fass_motif/fass_ntm_motif_test.fa", "/mnt/magisterka/results/positive", "fass_ntm"],
     ["/mnt/lustre/data/negative/PB40/PB40_1z20_clu50_test.fa", "/mnt/magisterka/results/negative", "PB40"],
     ["/mnt/lustre/data/negative/DisProt/DisProt_test.fa", "/mnt/magisterka/results/negative", "DisProt"],

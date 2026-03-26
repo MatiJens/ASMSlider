@@ -106,6 +106,11 @@ class EmbeddingsProjector:
         projected = self._project_emb(embeddings)
         self._save_emb(keys, projected, output_file)
 
+    @torch.no_grad()
+    def project(self, embeddings):
+        """Project numpy array (n_samples, 1152) → (n_samples, reduced_dim)."""
+        return self.encoder(torch.from_numpy(embeddings)).numpy()
+
 
 def create_parser():
     parser = argparse.ArgumentParser(

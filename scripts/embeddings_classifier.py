@@ -51,3 +51,6 @@ class EmbeddingsClassifier:
         proba = self.model.predict_proba(X)
         results = {name: float(p) for name, p in zip(keys, proba[:, 1])}
         self._save_results(results, output_file)
+
+    def predict_batch(self, embeddings):
+        return self.model.predict_proba(embeddings.astype(np.float32))[:, 1]
