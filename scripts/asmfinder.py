@@ -3,9 +3,9 @@ import tempfile
 import warnings
 from pathlib import Path
 
-from embeddings_generator import EmbeddingsGenerator
-from embeddings_projector import EmbeddingsProjector
-from embeddings_classifier import EmbeddingsClassifier
+from scripts.embeddings.generator import Generator
+from scripts.embeddings.projector import Projector
+from scripts.embeddings.classifier import EmbeddingsClassifier
 
 warnings.filterwarnings("ignore", message=".*older version of XGBoost.*")
 
@@ -26,10 +26,10 @@ class ASMFinder:
             emb_file = os.path.join(tmp, "embeddings.h5")
             proj_file = os.path.join(tmp, "projected.h5")
 
-            generator = EmbeddingsGenerator(batch_size=512, pooling_type="mean_pooling")
+            generator = Generator(batch_size=512, pooling_type="mean_pooling")
             generator.generate_from_file(input_fasta, emb_file)
 
-            projector = EmbeddingsProjector(
+            projector = Projector(
                 encoder_config=str(cls._ENCODER_CONFIG),
                 encoder_weights=str(cls._ENCODER_WEIGHTS),
             )

@@ -6,9 +6,9 @@ from pathlib import Path
 import numpy as np
 from Bio import SeqIO
 
-from embeddings_generator import EmbeddingsGenerator
-from embeddings_projector import EmbeddingsProjector
-from embeddings_classifier import EmbeddingsClassifier
+from scripts.embeddings.generator import Generator
+from scripts.embeddings.projector import Projector
+from scripts.embeddings.classifier import EmbeddingsClassifier
 
 warnings.filterwarnings("ignore", message=".*older version of XGBoost.*")
 
@@ -42,10 +42,8 @@ class ASMSlider:
     ):
         os.makedirs(output_dir, exist_ok=True)
 
-        generator = EmbeddingsGenerator(
-            batch_size=batch_size, pooling_type="mean_pooling"
-        )
-        projector = EmbeddingsProjector(
+        generator = Generator(batch_size=batch_size, pooling_type="mean_pooling")
+        projector = Projector(
             encoder_config=str(cls._ENCODER_CONFIG),
             encoder_weights=str(cls._ENCODER_WEIGHTS),
         )

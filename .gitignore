@@ -6,3 +6,5 @@ asmfinder.tar
 embeddings/
 data/
 jobs/
+module_test.py
+module_test_2.py
