@@ -1,51 +1,25 @@
 import os
 import tempfile
-import warnings
 from pathlib import Path
 
-from scripts.embeddings.generator import Generator
-from scripts.embeddings.projector import Projector
-from scripts.embeddings.classifier import EmbeddingsClassifier
-
-warnings.filterwarnings("ignore", message=".*older version of XGBoost.*")
+from embeddings_generator import EmbeddingsGenerator
+from embeddings_classifier import EmbeddingsClassifier
 
 
 class ASMFinder:
     _WEIGHTS_DIR = Path(__file__).parent.parent / "weights"
-    _ENCODER_CONFIG = _WEIGHTS_DIR / "mlp_config.json"
-    _ENCODER_WEIGHTS = _WEIGHTS_DIR / "mlp_encoder.pt"
-    _LR_MODEL = _WEIGHTS_DIR / "lr_model.pkl"
-    _RF_MODEL = _WEIGHTS_DIR / "rf_model.pkl"
-    _XGB_MODEL = _WEIGHTS_DIR / "xgb_model.pkl"
+    _MLP_WEIGHTS = _WEIGHTS_DIR / "mlp_classifier.pt"
 
     @classmethod
     def predict(cls, input_fasta, output_dir, prefix=""):
         os.makedirs(output_dir, exist_ok=True)
 
         with tempfile.TemporaryDirectory() as tmp:
-            emb_file = os.path.join(tmp, "embeddings.h5")
-            proj_file = os.path.join(tmp, "projected.h5")
+            generator = EmbeddingsGenerator(batch_size=512)
+            generator.generate_from_file(input_fasta, tmp)
+            emb_file = os.path.join(tmp, Path(input_fasta).stem + ".npz")
 
-            generator = Generator(batch_size=512, pooling_type="mean_pooling")
-            generator.generate_from_file(input_fasta, emb_file)
-
-            projector = Projector(
-                encoder_config=str(cls._ENCODER_CONFIG),
-                encoder_weights=str(cls._ENCODER_WEIGHTS),
-            )
-            projector.project_from_file(emb_file, proj_file)
-
-            lr = EmbeddingsClassifier(model_path=str(cls._LR_MODEL))
-            lr.predict_from_file(
-                proj_file, os.path.join(output_dir, f"{prefix}_lr_results.json")
-            )
-
-            rf = EmbeddingsClassifier(model_path=str(cls._RF_MODEL))
-            rf.predict_from_file(
-                proj_file, os.path.join(output_dir, f"{prefix}_rf_results.json")
-            )
-
-            xgb = EmbeddingsClassifier(model_path=str(cls._XGB_MODEL))
-            xgb.predict_from_file(
-                proj_file, os.path.join(output_dir, f"{prefix}_xgb_results.json")
+            classifier = EmbeddingsClassifier(weights_path=str(cls._MLP_WEIGHTS))
+            classifier.predict_from_file(
+                emb_file, os.path.join(output_dir, f"{prefix}_mlp_results.json")
             )

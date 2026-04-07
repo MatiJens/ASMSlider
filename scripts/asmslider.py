@@ -1,16 +1,13 @@
-import os
 import json
 import logging
-import warnings
+import os
 from pathlib import Path
+
 import numpy as np
 from Bio import SeqIO
 
-from scripts.embeddings.generator import Generator
-from scripts.embeddings.projector import Projector
-from scripts.embeddings.classifier import EmbeddingsClassifier
-
-warnings.filterwarnings("ignore", message=".*older version of XGBoost.*")
+from embeddings_classifier import EmbeddingsClassifier
+from embeddings_generator import EmbeddingsGenerator
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -22,11 +19,7 @@ logging.basicConfig(
 
 class ASMSlider:
     _WEIGHTS_DIR = Path(__file__).parent.parent / "weights"
-    _ENCODER_CONFIG = _WEIGHTS_DIR / "mlp_config.json"
-    _ENCODER_WEIGHTS = _WEIGHTS_DIR / "mlp_encoder.pt"
-    _LR_MODEL = _WEIGHTS_DIR / "lr_model.pkl"
-    _RF_MODEL = _WEIGHTS_DIR / "rf_model.pkl"
-    _XGB_MODEL = _WEIGHTS_DIR / "xgb_model.pkl"
+    _MLP_WEIGHTS = _WEIGHTS_DIR / "mlp_classifier.pt"
 
     @classmethod
     def scan(
@@ -42,54 +35,42 @@ class ASMSlider:
     ):
         os.makedirs(output_dir, exist_ok=True)
 
-        generator = Generator(batch_size=batch_size, pooling_type="mean_pooling")
-        projector = Projector(
-            encoder_config=str(cls._ENCODER_CONFIG),
-            encoder_weights=str(cls._ENCODER_WEIGHTS),
-        )
-        classifiers = {
-            "xgb": EmbeddingsClassifier(model_path=str(cls._XGB_MODEL)),
-        }
-        logger.info("All models loaded.")
+        generator = EmbeddingsGenerator(batch_size=batch_size)
+        classifier = EmbeddingsClassifier(weights_path=str(cls._MLP_WEIGHTS))
+        logger.info("Models loaded.")
 
         sequences = {}
         for record in SeqIO.parse(input_fasta, "fasta"):
             sequences[record.id] = str(record.seq)
         logger.info(f"Loaded {len(sequences)} sequences from {input_fasta}.")
 
-        for clf_name, classifier in classifiers.items():
-            logger.info(f"Started scan with {clf_name}.")
-            all_results = {}
-
-            for seq_name, seq in sequences.items():
-                logger.info(f"  [{clf_name}] Scanning {seq_name} (len={len(seq)})...")
-                results = cls._scan_sequence(
-                    seq,
-                    generator,
-                    projector,
-                    classifier,
-                    window_sizes,
-                    stride,
-                    threshold,
-                    merge_distance,
-                )
-                all_results[seq_name] = results
-                n_hits = len(results)
-                logger.info(f"  [{clf_name}] {seq_name}: {n_hits} hits found.")
-
-            results_file = os.path.join(
-                output_dir, f"{prefix}_{clf_name}_{Path(input_fasta).stem}.json"
+        all_results = {}
+        for seq_name, seq in sequences.items():
+            logger.info(f"Scanning {seq_name} (len={len(seq)})...")
+            results = cls._scan_sequence(
+                seq,
+                generator,
+                classifier,
+                window_sizes,
+                stride,
+                threshold,
+                merge_distance,
             )
-            with open(results_file, "w") as f:
-                json.dump(all_results, f, indent=2)
-            logger.info(f"Results saved to {results_file}")
+            all_results[seq_name] = results
+            logger.info(f"{seq_name}: {len(results)} hits found.")
+
+        results_file = os.path.join(
+            output_dir, f"{prefix}_mlp_{Path(input_fasta).stem}.json"
+        )
+        with open(results_file, "w") as f:
+            json.dump(all_results, f, indent=2)
+        logger.info(f"Results saved to {results_file}")
 
     @classmethod
     def _scan_sequence(
         cls,
         sequence,
         generator,
-        projector,
         classifier,
         window_sizes,
         stride,
@@ -106,18 +87,14 @@ class ASMSlider:
             fragments = []
             positions = []
             for start in range(0, seq_len - win_size + 1, stride):
-                end = start + win_size
-                fragments.append(sequence[start:end])
-                positions.append((start, end))
+                fragments.append(sequence[start : start + win_size])
+                positions.append((start, start + win_size))
 
             if not fragments:
                 continue
 
             embeddings = generator.generate_from_list(fragments)
-
-            projected = projector.project(embeddings)
-
-            probas = classifier.predict_batch(projected)
+            probas = classifier.predict_batch(embeddings)
 
             logger.info(
                 f"Window {win_size}: probas min={probas.min():.4f}, "

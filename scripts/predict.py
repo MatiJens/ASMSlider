@@ -1,8 +1,5 @@
+import argparse
 import logging
-import json
-import sys
-
-from pathlib import Path
 
 from asmfinder import ASMFinder
 
@@ -13,31 +10,39 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-input_json = "/mnt/magisterka/configs/predict_config.json"
 
-try:
-    with open(input_json, "r") as f:
-        files_to_predict = json.load(f)
-except FileNotFoundError:
-    logger.error(f"Config file not found: {input_json}")
-    sys.exit(1)
-except json.JSONDecodeError as e:
-    logger.error(f"Invalid JSON in {input_json}: {e}")
-    sys.exit(1)
+def create_parser():
+    parser = argparse.ArgumentParser(description="Predict ASM regions in a FASTA file.")
+    parser.add_argument(
+        "--input-fasta",
+        type=str,
+        required=True,
+        help="Path to input .fasta file.",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        type=str,
+        required=True,
+        help="Directory where results will be saved.",
+    )
+    parser.add_argument(
+        "--prefix",
+        type=str,
+        default="",
+        help="Prefix for output file names.",
+    )
+    return parser
 
-if not isinstance(files_to_predict, list):
-    logger.error("Config must be a JSON list of [input, output, prefix] entries.")
-    sys.exit(1)
 
-for i, entry in enumerate(files_to_predict):
-    if not isinstance(entry, list) or len(entry) != 3:
-        logger.error(f"Row {i}: expected [input, output, prefix], got {entry}")
-        sys.exit(1)
-    if not Path(entry[0]).is_file():
-        logger.error(f"Row {i}: file not found: {entry[0]}")
-        sys.exit(1)
+def main():
+    parser = create_parser()
+    args = parser.parse_args()
 
-for input_file, output_dir, prefix in files_to_predict:
-    logger.info(f"Predicting {Path(input_file).stem}")
-    ASMFinder.predict(input_file, output_dir, prefix)
-    logger.info(f"Predicted. Results saved under {output_dir}")
+    logger.info(f"Predicting: {args.input_fasta}")
+    ASMFinder.predict(args.input_fasta, args.output_dir, args.prefix)
+    logger.info(f"Results saved under {args.output_dir}")
+
+
+if __name__ == "__main__":
+    main()
