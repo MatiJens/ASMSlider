@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os
@@ -18,122 +19,117 @@ logging.basicConfig(
 
 
 class ASMSlider:
-    _WEIGHTS_DIR = Path(__file__).parent.parent / "weights"
-    _MLP_WEIGHTS = _WEIGHTS_DIR / "mlp_classifier.pt"
+    _MLP_WEIGHTS = Path(__file__).parent.parent / "model" / "best_model.pt"
 
-    @classmethod
+    def __init__(self, batch_size=2048):
+        self.generator = EmbeddingsGenerator(batch_size=batch_size)
+        self.classifier = EmbeddingsClassifier(weights_path=str(self._MLP_WEIGHTS))
+        logger.info("Models loaded.")
+
     def scan(
-        cls,
+        self,
         input_fasta,
         output_dir,
         prefix="",
-        window_sizes=(15, 21, 30, 40),
+        window_size=30,
         stride=1,
         threshold=0.8,
         merge_distance=5,
-        batch_size=2048,
     ):
         os.makedirs(output_dir, exist_ok=True)
 
-        generator = EmbeddingsGenerator(batch_size=batch_size)
-        classifier = EmbeddingsClassifier(weights_path=str(cls._MLP_WEIGHTS))
-        logger.info("Models loaded.")
-
-        sequences = {}
-        for record in SeqIO.parse(input_fasta, "fasta"):
-            sequences[record.id] = str(record.seq)
+        sequences = {r.id: str(r.seq) for r in SeqIO.parse(input_fasta, "fasta")}
         logger.info(f"Loaded {len(sequences)} sequences from {input_fasta}.")
 
         all_results = {}
-        for seq_name, seq in sequences.items():
-            logger.info(f"Scanning {seq_name} (len={len(seq)})...")
-            results = cls._scan_sequence(
-                seq,
-                generator,
-                classifier,
-                window_sizes,
-                stride,
-                threshold,
-                merge_distance,
+        for name, seq in sequences.items():
+            logger.info(f"Scanning {name} (len={len(seq)})...")
+            hits = self._scan_sequence(
+                seq, window_size, stride, threshold, merge_distance
             )
-            all_results[seq_name] = results
-            logger.info(f"{seq_name}: {len(results)} hits found.")
+            all_results[name] = hits
+            logger.info(f"{name}: {len(hits)} hits found.")
 
-        results_file = os.path.join(
+        out_file = os.path.join(
             output_dir, f"{prefix}_mlp_{Path(input_fasta).stem}.json"
         )
-        with open(results_file, "w") as f:
+        with open(out_file, "w") as f:
             json.dump(all_results, f, indent=2)
-        logger.info(f"Results saved to {results_file}")
+        logger.info(f"Results saved to {out_file}")
 
-    @classmethod
-    def _scan_sequence(
-        cls,
-        sequence,
-        generator,
-        classifier,
-        window_sizes,
-        stride,
-        threshold,
-        merge_distance,
-    ):
-        seq_len = len(sequence)
-        position_scores = np.zeros(seq_len, dtype=np.float32)
+    def _scan_sequence(self, sequence, window_size, stride, threshold, merge_distance):
+        if window_size > len(sequence):
+            return []
 
-        for win_size in window_sizes:
-            if win_size > seq_len:
-                continue
+        starts = range(0, len(sequence) - window_size + 1, stride)
+        fragments = [sequence[s : s + window_size] for s in starts]
 
-            fragments = []
-            positions = []
-            for start in range(0, seq_len - win_size + 1, stride):
-                fragments.append(sequence[start : start + win_size])
-                positions.append((start, start + win_size))
+        probas = self.classifier.predict_batch(
+            self.generator.generate_from_list(fragments)
+        )
+        logger.info(
+            f"Window {window_size}: min={probas.min():.4f}, max={probas.max():.4f}, mean={probas.mean():.4f}"
+        )
 
-            if not fragments:
-                continue
-
-            embeddings = generator.generate_from_list(fragments)
-            probas = classifier.predict_batch(embeddings)
-
-            logger.info(
-                f"Window {win_size}: probas min={probas.min():.4f}, "
-                f"max={probas.max():.4f}, mean={probas.mean():.4f}"
+        scores = np.zeros(len(sequence), dtype=np.float32)
+        for s, prob in zip(starts, probas):
+            np.maximum(
+                scores[s : s + window_size], prob, out=scores[s : s + window_size]
             )
 
-            for (start, end), prob in zip(positions, probas):
-                np.maximum(
-                    position_scores[start:end], prob, out=position_scores[start:end]
-                )
+        return self._merge_hits(scores, threshold, merge_distance)
 
-        return cls._find_hits(position_scores, threshold, merge_distance)
+    @staticmethod
+    def _merge_hits(scores, threshold, merge_distance):
+        above = np.where(scores >= threshold)[0]
+        if len(above) == 0:
+            return []
 
-    @classmethod
-    def _find_hits(cls, position_scores, threshold, merge_distance):
-        in_hit = False
         hits = []
+        start = above[0]
+        prev = above[0]
 
-        for i, score in enumerate(position_scores):
-            if score >= threshold and not in_hit:
-                hit_start = i
-                in_hit = True
-            elif score < threshold and in_hit:
-                hits.append({"start": hit_start, "end": i})
-                in_hit = False
+        for i in above[1:]:
+            if i - prev > merge_distance + 1:
+                hits.append({"start": int(start), "end": int(prev + 1)})
+                start = i
+            prev = i
+        hits.append({"start": int(start), "end": int(prev + 1)})
 
-        if in_hit:
-            hits.append({"start": hit_start, "end": len(position_scores)})
-
-        merged = []
         for hit in hits:
-            if merged and hit["start"] - merged[-1]["end"] <= merge_distance:
-                merged[-1]["end"] = hit["end"]
-            else:
-                merged.append(hit.copy())
-
-        for hit in merged:
-            region = position_scores[hit["start"] : hit["end"]]
+            region = scores[hit["start"] : hit["end"]]
             hit["max_probability"] = float(region.max())
             hit["mean_probability"] = float(region.mean())
 
-        return merged
+        return hits
+
+
+def create_parser():
+    parser = argparse.ArgumentParser(description="Scan sequences for ASM regions.")
+    parser.add_argument("--input-fasta", type=str, required=True)
+    parser.add_argument("--output-dir", type=str, required=True)
+    parser.add_argument("--prefix", type=str, default="")
+    parser.add_argument("--window-size", type=int, default=30)
+    parser.add_argument("--stride", type=int, default=1)
+    parser.add_argument("--threshold", type=float, default=0.8)
+    parser.add_argument("--merge-distance", type=int, default=5)
+    parser.add_argument("--batch-size", type=int, default=2048)
+    return parser
+
+
+def main():
+    args = create_parser().parse_args()
+    slider = ASMSlider(batch_size=args.batch_size)
+    slider.scan(
+        input_fasta=args.input_fasta,
+        output_dir=args.output_dir,
+        prefix=args.prefix,
+        window_size=args.window_size,
+        stride=args.stride,
+        threshold=args.threshold,
+        merge_distance=args.merge_distance,
+    )
+
+
+if __name__ == "__main__":
+    main()

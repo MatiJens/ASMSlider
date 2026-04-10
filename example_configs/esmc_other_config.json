@@ -1,7 +1,0 @@
-{
-    "DisProt": {"negative": "/mnt/lustre/data/negative/DisProt/DisProt_test.fa"},
-    "NLReff":   {"negative": "/mnt/lustre/data/negative/NLReff/NLReff_test.fa"},
-    "fass_ctm_val": {"positive": "/mnt/lustre/data/positive/fass_motif/fass_ctm_motif_val.fa"},
-    "fass_ctm_test":   {"positive": "/mnt/lustre/data/positive/fass_motif/fass_ctm_motif_test.fa"},
-    "fass_ntm_test": {"positive": "/mnt/lustre/data/positive/fass_motif/fass_ntm_motif_test.fa"}
-}

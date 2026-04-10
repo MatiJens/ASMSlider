@@ -3,7 +3,6 @@ import numpy as np
 import logging
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from pathlib import Path
 from sklearn.metrics import (
@@ -11,71 +10,35 @@ from sklearn.metrics import (
     average_precision_score,
     recall_score,
     f1_score,
+    confusion_matrix,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class BinaryFocalLoss(nn.Module):
-    def __init__(
-        self, alpha: float = 0.25, gamma: float = 2.0, reduction: str = "mean"
-    ):
-        super().__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-
-    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        probs = torch.sigmoid(logits)
-        targets = targets.float()
-
-        bce = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
-        p_t = probs * targets + (1 - probs) * (1 - targets)
-        alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
-        focal_weight = alpha_t * (1 - p_t) ** self.gamma
-        loss = focal_weight * bce
-
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
-        return loss
+def load_npy_dir(dir_path):
+    """Load and concatenate all .npy files from a directory."""
+    arrays = [
+        np.load(f).astype(np.float32) for f in sorted(Path(dir_path).glob("*.npy"))
+    ]
+    if not arrays:
+        raise ValueError(f"No .npy files found in {dir_path}")
+    return np.concatenate(arrays)
 
 
-class MLPModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.network = nn.Sequential(
-            nn.BatchNorm1d(1152),
-            nn.Linear(1152, 512),
-            nn.BatchNorm1d(512),
-            nn.GELU(),
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.GELU(),
-            nn.Dropout(0.3),
-            nn.Linear(256, 64),
-            nn.BatchNorm1d(64),
-            nn.GELU(),
-            nn.Dropout(0.3),
-            nn.Linear(64, 1),
-        )
-
-    def forward(self, x):
-        return self.network(x).squeeze(-1)
-
-
-def load_data(pos_file, neg_file):
-    pos_emb = np.load(pos_file).astype(np.float32)
-    neg_emb = np.load(neg_file).astype(np.float32)
-    X = np.concatenate([pos_emb, neg_emb])
-    y = np.array([1] * len(pos_emb) + [0] * len(neg_emb))
-    return TensorDataset(torch.from_numpy(X), torch.from_numpy(y).float())
+def load_split(base_path, split):
+    """Load positive/<split>/ and negative/<split>/, return TensorDataset."""
+    p = Path(base_path)
+    pos = load_npy_dir(p / "positive" / split)
+    neg = load_npy_dir(p / "negative" / split)
+    logger.info(f"[{split}] positive: {pos.shape[0]}, negative: {neg.shape[0]}")
+    X = np.concatenate([pos, neg])
+    y = np.array([1] * len(pos) + [0] * len(neg), dtype=np.float32)
+    return TensorDataset(torch.from_numpy(X), torch.from_numpy(y))
 
 
 def make_loader(input_path, split, batch_size, shuffle=False):
-    p = Path(input_path)
-    ds = load_data(p / f"positive_{split}.npy", p / f"negative_{split}.npy")
+    ds = load_split(input_path, split)
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, pin_memory=True)
 
 
@@ -120,6 +83,7 @@ def evaluate(model, loader, criterion, device):
         "auprc": average_precision_score(targets, probs),
         "recall": recall_score(targets, preds, zero_division=0),
         "f1": f1_score(targets, preds, zero_division=0),
+        "conf": confusion_matrix(targets, preds),
     }
 
 
@@ -129,7 +93,7 @@ def create_parser():
         "--input-path",
         type=str,
         required=True,
-        help="Directory with {positive,negative}_{train,val,test}.npz files.",
+        help="Directory with {positive,negative}_{train,val,test}.npy files.",
     )
     parser.add_argument(
         "--lr", type=float, default=1e-3, help="Learning rate (default: 1e-3)."
@@ -198,10 +162,11 @@ def main():
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
         m = evaluate(model, val_loader, criterion, device)
         logger.info(
-            f"Epoch {epoch:3d} | train_loss: {train_loss:.4f} | "
-            f"val_loss: {m['loss']:.4f} | mcc: {m['mcc']:.4f} | "
-            f"F1: {m['f1']:.4f} | auprc: {m['auprc']:.4f} |  recall: {m['recall']:.4f}"
+            f"Epoch {epoch:3d} | train_loss: {train_loss:.6f} | "
+            f"val_loss: {m['loss']:.6f} | mcc: {m['mcc']:.6f} | "
+            f"F1: {m['f1']:.6f} | auprc: {m['auprc']:.6f} |  recall: {m['recall']:.6f}"
         )
+        logger.info(f"\n{m['conf']}")
 
         if m["loss"] < best_val_loss:
             best_val_loss = m["loss"]
@@ -221,10 +186,11 @@ def main():
     )
     m = evaluate(model, val_loader, criterion, device)
     logger.info(
-        f"Epoch {epoch:3d} | train_loss: {train_loss:.4f} | "
-        f"val_loss: {m['loss']:.4f} | mcc: {m['mcc']:.4f} | "
+        "Best model:"
+        f"test_loss: {m['loss']:.4f} | mcc: {m['mcc']:.4f} | "
         f"F1: {m['f1']:.4f} | auprc: {m['auprc']:.4f} |  recall: {m['recall']:.4f}"
     )
+    logger.info(f"\n{m['conf']}")
 
     torch.save(model.state_dict(), ckpt_dir / f"best_model_{m['mcc']:.4f}.pt")
 

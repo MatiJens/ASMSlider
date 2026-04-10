@@ -23,19 +23,15 @@ class SequenceLoader:
         return sequences
 
     @staticmethod
-    def load_embeddings(filepath):
-        """Load .npz embeddings. Returns (keys: list[str], embeddings: np.ndarray float32)."""
-        data = np.load(filepath)
-        keys = data["keys"].tolist()
-        embeddings = data["embeddings"].astype(np.float32)
-        logger.info(
-            f"Loaded {len(keys)} embeddings {embeddings.shape} from {Path(filepath).name}"
-        )
-        return keys, embeddings
+    def save_embeddings(embeddings, filepath):
+        """Save embeddings to .npy."""
+        os.makedirs(Path(filepath).parent, exist_ok=True)
+        np.save(Path(filepath).with_suffix(".npy"), embeddings)
+        logger.info(f"Saved {embeddings.shape[0]} embeddings to {filepath}")
 
     @staticmethod
-    def save_embeddings(keys, embeddings, filepath):
-        """Save embeddings to .npz."""
-        os.makedirs(Path(filepath).parent, exist_ok=True)
-        np.savez(filepath, keys=np.array(keys), embeddings=embeddings)
-        logger.info(f"Saved {len(keys)} embeddings to {filepath}")
+    def load_embeddings(filepath):
+        """Load .npy embeddings. Returns np.ndarray float32."""
+        embeddings = np.load(Path(filepath).with_suffix(".npy")).astype(np.float32)
+        logger.info(f"Loaded {embeddings.shape[0]} embeddings {embeddings.shape}")
+        return embeddings
