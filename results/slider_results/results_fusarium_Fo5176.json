@@ -1,0 +1,218 @@
+{
+  "EGU72489.1": [
+    {
+      "start": 28,
+      "end": 90,
+      "max_probability": 0.9102070331573486,
+      "mean_probability": 0.8817493915557861
+    }
+  ],
+  "EGU72583.1": [
+    {
+      "start": 244,
+      "end": 284,
+      "max_probability": 0.7731961607933044,
+      "mean_probability": 0.7731961607933044
+    }
+  ],
+  "EGU74390.1": [
+    {
+      "start": 416,
+      "end": 468,
+      "max_probability": 0.8665871024131775,
+      "mean_probability": 0.8510762453079224
+    }
+  ],
+  "EGU74391.1": [
+    {
+      "start": 176,
+      "end": 222,
+      "max_probability": 0.7927691340446472,
+      "mean_probability": 0.7915443181991577
+    }
+  ],
+  "EGU74392.1": [
+    {
+      "start": 34,
+      "end": 98,
+      "max_probability": 0.8938164114952087,
+      "mean_probability": 0.8736257553100586
+    }
+  ],
+  "EGU75420.1": [
+    {
+      "start": 148,
+      "end": 204,
+      "max_probability": 0.8692187070846558,
+      "mean_probability": 0.8484536409378052
+    }
+  ],
+  "EGU75421.1": [
+    {
+      "start": 344,
+      "end": 398,
+      "max_probability": 0.890728235244751,
+      "mean_probability": 0.8795529007911682
+    }
+  ],
+  "EGU75423.1": [
+    {
+      "start": 312,
+      "end": 370,
+      "max_probability": 0.8482553958892822,
+      "mean_probability": 0.8424351215362549
+    }
+  ],
+  "EGU75890.1": [
+    {
+      "start": 194,
+      "end": 234,
+      "max_probability": 0.7745119333267212,
+      "mean_probability": 0.7745119333267212
+    }
+  ],
+  "EGU76459.1": [
+    {
+      "start": 274,
+      "end": 324,
+      "max_probability": 0.7913747429847717,
+      "mean_probability": 0.787608802318573
+    }
+  ],
+  "EGU79492.1": [
+    {
+      "start": 8,
+      "end": 48,
+      "max_probability": 0.8138407468795776,
+      "mean_probability": 0.8138407468795776
+    }
+  ],
+  "EGU79744.1": [
+    {
+      "start": 0,
+      "end": 40,
+      "max_probability": 0.7585674524307251,
+      "mean_probability": 0.7585674524307251
+    }
+  ],
+  "EGU79892.1": [
+    {
+      "start": 164,
+      "end": 220,
+      "max_probability": 0.9290302395820618,
+      "mean_probability": 0.9211534261703491
+    }
+  ],
+  "EGU79893.1": [
+    {
+      "start": 152,
+      "end": 206,
+      "max_probability": 0.910471498966217,
+      "mean_probability": 0.8979387879371643
+    }
+  ],
+  "EGU80123.1": [
+    {
+      "start": 42,
+      "end": 86,
+      "max_probability": 0.8316301703453064,
+      "mean_probability": 0.8303053379058838
+    }
+  ],
+  "EGU82782.1": [
+    {
+      "start": 22,
+      "end": 72,
+      "max_probability": 0.8996010422706604,
+      "mean_probability": 0.8965159058570862
+    }
+  ],
+  "EGU83004.1": [
+    {
+      "start": 38,
+      "end": 108,
+      "max_probability": 0.9103121161460876,
+      "mean_probability": 0.8949151039123535
+    }
+  ],
+  "EGU84312.1": [
+    {
+      "start": 118,
+      "end": 160,
+      "max_probability": 0.8231467008590698,
+      "mean_probability": 0.8207483887672424
+    }
+  ],
+  "EGU85057.1": [
+    {
+      "start": 96,
+      "end": 136,
+      "max_probability": 0.7742404937744141,
+      "mean_probability": 0.7742404937744141
+    }
+  ],
+  "EGU85726.1": [
+    {
+      "start": 326,
+      "end": 366,
+      "max_probability": 0.7971606850624084,
+      "mean_probability": 0.7971606850624084
+    }
+  ],
+  "EGU85839.1": [
+    {
+      "start": 18,
+      "end": 58,
+      "max_probability": 0.802068829536438,
+      "mean_probability": 0.802068829536438
+    }
+  ],
+  "EGU86221.1": [
+    {
+      "start": 146,
+      "end": 190,
+      "max_probability": 0.8403475284576416,
+      "mean_probability": 0.8336945176124573
+    }
+  ],
+  "EGU86408.1": [
+    {
+      "start": 18,
+      "end": 80,
+      "max_probability": 0.917222797870636,
+      "mean_probability": 0.8999492526054382
+    }
+  ],
+  "EGU86761.1": [
+    {
+      "start": 4,
+      "end": 46,
+      "max_probability": 0.8307752013206482,
+      "mean_probability": 0.8300026655197144
+    }
+  ],
+  "EGU86796.1": [
+    {
+      "start": 336,
+      "end": 378,
+      "max_probability": 0.8400996327400208,
+      "mean_probability": 0.8379757404327393
+    }
+  ],
+  "EGU86797.1": [
+    {
+      "start": 30,
+      "end": 72,
+      "max_probability": 0.8427225947380066,
+      "mean_probability": 0.8422083854675293
+    }
+  ],
+  "EGU86896.1": [
+    {
+      "start": 0,
+      "end": 50,
+      "max_probability": 0.8665186166763306,
+      "mean_probability": 0.8523079752922058
+    }
+  ]
+}

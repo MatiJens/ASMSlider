@@ -1,0 +1,61 @@
+{
+  "ASM_reference_Fusarium_fujikuroi": {
+    "seq_tp": 2,
+    "seq_fp": 20,
+    "seq_fn": 15,
+    "seq_precision": 0.09090909090909091,
+    "seq_recall": 0.11764705882352941,
+    "seq_f1": 0.10256410256410256,
+    "region_total": 17,
+    "region_found": 2,
+    "region_recall": 0.11764705882352941,
+    "mean_iou": 0.5305555555555556
+  },
+  "ASM_reference_Fusarium_oxysporum_Fo5176_EGU": {
+    "seq_tp": 5,
+    "seq_fp": 22,
+    "seq_fn": 1,
+    "seq_precision": 0.18518518518518517,
+    "seq_recall": 0.8333333333333334,
+    "seq_f1": 0.303030303030303,
+    "region_total": 6,
+    "region_found": 5,
+    "region_recall": 0.8333333333333334,
+    "mean_iou": 0.42182142857142857
+  },
+  "ASM_reference_Pyrrhoderma_noxium": {
+    "seq_tp": 73,
+    "seq_fp": 34,
+    "seq_fn": 14,
+    "seq_precision": 0.6822429906542056,
+    "seq_recall": 0.8390804597701149,
+    "seq_f1": 0.7525773195876289,
+    "region_total": 87,
+    "region_found": 73,
+    "region_recall": 0.8390804597701149,
+    "mean_iou": 0.5215666295590446
+  },
+  "ASM_reference_Podospora_anserina": {
+    "seq_tp": 0,
+    "seq_fp": 13,
+    "seq_fn": 3,
+    "seq_precision": 0.0,
+    "seq_recall": 0.0,
+    "seq_f1": 0.0,
+    "region_total": 3,
+    "region_found": 0,
+    "region_recall": 0.0,
+    "mean_iou": 0.0
+  },
+  "aggregated": {
+    "seq_tp": 80,
+    "seq_fp": 89,
+    "seq_fn": 33,
+    "seq_precision": 0.47337278106508873,
+    "seq_recall": 0.7079646017699115,
+    "seq_f1": 0.5673758865248226,
+    "region_total": 113,
+    "region_found": 80,
+    "region_recall": 0.7079646017699115
+  }
+}

@@ -6,39 +6,31 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HUGGINGFACE_HUB_CACHE=/opt/hf_cache/hub
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-dev \
-    python3-venv \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-venv \
+    python3.12-dev \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m venv /opt/venv
+RUN python3.12 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 RUN pip install --no-cache-dir \
     torch==2.3.1 --index-url https://download.pytorch.org/whl/cu121
 
-RUN pip install --no-cache-dir biopython tqdm httpx pandas numpy h5py
-
-RUN pip install --no-cache-dir scikit-learn xgboost lightgbm
-
-RUN pip install --no-cache-dir optuna optuna-integration
-
-RUN pip install --no-cache-dir matplotlib plotly kaleido seaborn
-
-RUN pip install --no-cache-dir pytorch-lightning
-
-RUN pip install --no-cache-dir esm
+RUN pip install --no-cache-dir \
+    numpy \
+    scikit-learn \
+    matplotlib \
+    seaborn \
+    biopython
 
 RUN pip install --no-cache-dir \
-    --extra-index-url https://pypi.nvidia.com \
-    cudf-cu12 \
-    cuml-cu12
+    git+https://github.com/evolutionaryscale/esm.git@v3.2.3
 
-ENV TRANSFORMERS_CACHE=/tmp/transformers_cache
-
-COPY version.txt /opt/hf_cache/hub/version.txt
 COPY models--EvolutionaryScale--esmc-600m-2024-12 /opt/hf_cache/hub/models--EvolutionaryScale--esmc-600m-2024-12
 
 WORKDIR /mnt

@@ -19,11 +19,11 @@ logging.basicConfig(
 
 
 class ASMSlider:
-    _MLP_WEIGHTS = Path(__file__).parent.parent / "model" / "best_model.pt"
+    _MLP_WEIGHTS = Path(__file__).parent.parent / "models" / "best_model.pt"
 
     def __init__(self, batch_size=2048):
-        self.generator = EmbeddingsGenerator(batch_size=batch_size)
-        self.classifier = EmbeddingsClassifier(weights_path=str(self._MLP_WEIGHTS))
+        self.batch_size = batch_size
+        self.classifier = EmbeddingsClassifier(checkpoint_path=str(self._MLP_WEIGHTS))
         logger.info("Models loaded.")
 
     def scan(
@@ -47,7 +47,8 @@ class ASMSlider:
             hits = self._scan_sequence(
                 seq, window_size, stride, threshold, merge_distance
             )
-            all_results[name] = hits
+            if hits:
+                all_results[name] = hits
             logger.info(f"{name}: {len(hits)} hits found.")
 
         out_file = os.path.join(
@@ -64,9 +65,10 @@ class ASMSlider:
         starts = range(0, len(sequence) - window_size + 1, stride)
         fragments = [sequence[s : s + window_size] for s in starts]
 
-        probas = self.classifier.predict_batch(
-            self.generator.generate_from_list(fragments)
+        embeddings = EmbeddingsGenerator.generate_from_list(
+            fragments, pooling="mean", batch_size=self.batch_size
         )
+        probas = self.classifier.predict(embeddings)
         logger.info(
             f"Window {window_size}: min={probas.min():.4f}, max={probas.max():.4f}, mean={probas.mean():.4f}"
         )
@@ -105,7 +107,7 @@ class ASMSlider:
 
 
 def create_parser():
-    parser = argparse.ArgumentParser(description="Scan sequences for ASM regions.")
+    parser = argparse.ArgumentParser()
     parser.add_argument("--input-fasta", type=str, required=True)
     parser.add_argument("--output-dir", type=str, required=True)
     parser.add_argument("--prefix", type=str, default="")

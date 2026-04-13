@@ -6,9 +6,13 @@ class MLPModel(nn.Module):
         super().__init__()
         self.network = nn.Sequential(
             nn.BatchNorm1d(1152),
-            nn.Linear(1152, 256),
+            nn.Linear(1152, 512),
+            nn.BatchNorm1d(512),
+            nn.GELU(),
+            nn.Linear(512, 256),
             nn.BatchNorm1d(256),
             nn.GELU(),
+            nn.Dropout(0.1),
             nn.Linear(256, 64),
             nn.BatchNorm1d(64),
             nn.GELU(),

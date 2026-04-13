@@ -1,0 +1,178 @@
+{
+  "KLO80985.1": [
+    {
+      "start": 202,
+      "end": 242,
+      "max_probability": 0.7550304532051086,
+      "mean_probability": 0.7550304532051086
+    }
+  ],
+  "KLO81607.1": [
+    {
+      "start": 374,
+      "end": 416,
+      "max_probability": 0.7908470630645752,
+      "mean_probability": 0.7893294095993042
+    }
+  ],
+  "KLO82193.1": [
+    {
+      "start": 0,
+      "end": 44,
+      "max_probability": 0.8537882566452026,
+      "mean_probability": 0.8494846224784851
+    }
+  ],
+  "KLO82311.1": [
+    {
+      "start": 90,
+      "end": 130,
+      "max_probability": 0.7538208961486816,
+      "mean_probability": 0.7538208961486816
+    }
+  ],
+  "KLO83570.1": [
+    {
+      "start": 0,
+      "end": 40,
+      "max_probability": 0.8003140091896057,
+      "mean_probability": 0.8003140687942505
+    }
+  ],
+  "KLO84677.1": [
+    {
+      "start": 1000,
+      "end": 1042,
+      "max_probability": 0.77390456199646,
+      "mean_probability": 0.7737669944763184
+    }
+  ],
+  "KLO85544.1": [
+    {
+      "start": 254,
+      "end": 296,
+      "max_probability": 0.8220973014831543,
+      "mean_probability": 0.8217880725860596
+    }
+  ],
+  "KLO85707.1": [
+    {
+      "start": 224,
+      "end": 280,
+      "max_probability": 0.8269285559654236,
+      "mean_probability": 0.8183174133300781
+    }
+  ],
+  "KLO86337.1": [
+    {
+      "start": 570,
+      "end": 610,
+      "max_probability": 0.7769339084625244,
+      "mean_probability": 0.7769339084625244
+    }
+  ],
+  "KLO86703.1": [
+    {
+      "start": 42,
+      "end": 86,
+      "max_probability": 0.8316301703453064,
+      "mean_probability": 0.8308054208755493
+    }
+  ],
+  "KLO87450.1": [
+    {
+      "start": 348,
+      "end": 388,
+      "max_probability": 0.75811368227005,
+      "mean_probability": 0.75811368227005
+    }
+  ],
+  "KLO87710.1": [
+    {
+      "start": 174,
+      "end": 214,
+      "max_probability": 0.8009830117225647,
+      "mean_probability": 0.8009830713272095
+    }
+  ],
+  "KLO87975.1": [
+    {
+      "start": 166,
+      "end": 206,
+      "max_probability": 0.8654446601867676,
+      "mean_probability": 0.8654446601867676
+    }
+  ],
+  "KLO89195.1": [
+    {
+      "start": 158,
+      "end": 206,
+      "max_probability": 0.904666543006897,
+      "mean_probability": 0.8992511630058289
+    }
+  ],
+  "KLO89197.1": [
+    {
+      "start": 1230,
+      "end": 1284,
+      "max_probability": 0.9227350950241089,
+      "mean_probability": 0.9165987372398376
+    }
+  ],
+  "KLO89756.1": [
+    {
+      "start": 18,
+      "end": 58,
+      "max_probability": 0.7983081936836243,
+      "mean_probability": 0.7983081936836243
+    }
+  ],
+  "KLO91668.1": [
+    {
+      "start": 164,
+      "end": 206,
+      "max_probability": 0.7913042306900024,
+      "mean_probability": 0.7910166382789612
+    }
+  ],
+  "KLO91920.1": [
+    {
+      "start": 76,
+      "end": 116,
+      "max_probability": 0.7593702077865601,
+      "mean_probability": 0.7593702077865601
+    }
+  ],
+  "KLO92447.1": [
+    {
+      "start": 12,
+      "end": 52,
+      "max_probability": 0.753069281578064,
+      "mean_probability": 0.753069281578064
+    }
+  ],
+  "KLO93175.1": [
+    {
+      "start": 38,
+      "end": 110,
+      "max_probability": 0.9117416143417358,
+      "mean_probability": 0.8924286961555481
+    }
+  ],
+  "KLO93176.1": [
+    {
+      "start": 298,
+      "end": 354,
+      "max_probability": 0.8199590444564819,
+      "mean_probability": 0.803313136100769
+    }
+  ],
+  "KLO94023.1": [
+    {
+      "start": 100,
+      "end": 144,
+      "max_probability": 0.8457561731338501,
+      "mean_probability": 0.8437616229057312
+    }
+  ]
+}

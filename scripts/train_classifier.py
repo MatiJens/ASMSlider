@@ -2,7 +2,6 @@ import argparse
 import numpy as np
 import logging
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from pathlib import Path
 from sklearn.metrics import (
@@ -10,8 +9,10 @@ from sklearn.metrics import (
     average_precision_score,
     recall_score,
     f1_score,
-    confusion_matrix,
 )
+
+from focal_loss import FocalLoss
+from mlp_model import MLPModel
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,6 @@ def evaluate(model, loader, criterion, device):
         "auprc": average_precision_score(targets, probs),
         "recall": recall_score(targets, preds, zero_division=0),
         "f1": f1_score(targets, preds, zero_division=0),
-        "conf": confusion_matrix(targets, preds),
     }
 
 
@@ -144,10 +144,9 @@ def main():
 
     train_loader = make_loader(args.input_path, "train", args.batch_size, shuffle=True)
     val_loader = make_loader(args.input_path, "val", args.batch_size)
-    test_loader = make_loader(args.input_path, "test", args.batch_size)
 
     model = MLPModel().to(device)
-    criterion = BinaryFocalLoss(alpha=args.alpha, gamma=args.gamma)
+    criterion = FocalLoss(alpha=args.alpha, gamma=args.gamma)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
@@ -166,7 +165,6 @@ def main():
             f"val_loss: {m['loss']:.6f} | mcc: {m['mcc']:.6f} | "
             f"F1: {m['f1']:.6f} | auprc: {m['auprc']:.6f} |  recall: {m['recall']:.6f}"
         )
-        logger.info(f"\n{m['conf']}")
 
         if m["loss"] < best_val_loss:
             best_val_loss = m["loss"]
@@ -190,9 +188,8 @@ def main():
         f"test_loss: {m['loss']:.4f} | mcc: {m['mcc']:.4f} | "
         f"F1: {m['f1']:.4f} | auprc: {m['auprc']:.4f} |  recall: {m['recall']:.4f}"
     )
-    logger.info(f"\n{m['conf']}")
 
-    torch.save(model.state_dict(), ckpt_dir / f"best_model_{m['mcc']:.4f}.pt")
+    torch.save(model.state_dict(), ckpt_dir / f"new_best_model_{m['mcc']:.4f}.pt")
 
 
 if __name__ == "__main__":

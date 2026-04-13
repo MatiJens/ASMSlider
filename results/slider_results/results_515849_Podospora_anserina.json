@@ -1,0 +1,106 @@
+{
+  "CAP65892.1": [
+    {
+      "start": 166,
+      "end": 206,
+      "max_probability": 0.8124980926513672,
+      "mean_probability": 0.8124980926513672
+    }
+  ],
+  "CAP66688.1": [
+    {
+      "start": 250,
+      "end": 324,
+      "max_probability": 0.8696618676185608,
+      "mean_probability": 0.8501962423324585
+    }
+  ],
+  "CAP68031.1": [
+    {
+      "start": 38,
+      "end": 78,
+      "max_probability": 0.7506096959114075,
+      "mean_probability": 0.7506096959114075
+    }
+  ],
+  "CAP68405.1": [
+    {
+      "start": 40,
+      "end": 92,
+      "max_probability": 0.8512995839118958,
+      "mean_probability": 0.8333092331886292
+    }
+  ],
+  "CAP68494.1": [
+    {
+      "start": 396,
+      "end": 436,
+      "max_probability": 0.7725864052772522,
+      "mean_probability": 0.7725864052772522
+    }
+  ],
+  "CAP70979.1": [
+    {
+      "start": 558,
+      "end": 614,
+      "max_probability": 0.8933585286140442,
+      "mean_probability": 0.880020022392273
+    }
+  ],
+  "CAP71089.1": [
+    {
+      "start": 616,
+      "end": 672,
+      "max_probability": 0.7898331880569458,
+      "mean_probability": 0.7855907678604126
+    }
+  ],
+  "CAP71365.1": [
+    {
+      "start": 498,
+      "end": 540,
+      "max_probability": 0.7752532362937927,
+      "mean_probability": 0.7750393152236938
+    }
+  ],
+  "CAP71478.1": [
+    {
+      "start": 552,
+      "end": 594,
+      "max_probability": 0.7700448036193848,
+      "mean_probability": 0.7699981927871704
+    }
+  ],
+  "CAP71697.1": [
+    {
+      "start": 398,
+      "end": 438,
+      "max_probability": 0.7513155341148376,
+      "mean_probability": 0.7513155341148376
+    }
+  ],
+  "CAP72740.1": [
+    {
+      "start": 40,
+      "end": 80,
+      "max_probability": 0.7522804141044617,
+      "mean_probability": 0.7522804141044617
+    }
+  ],
+  "CAP72957.1": [
+    {
+      "start": 660,
+      "end": 718,
+      "max_probability": 0.885562539100647,
+      "mean_probability": 0.8687533736228943
+    }
+  ],
+  "CAP73033.1": [
+    {
+      "start": 1164,
+      "end": 1204,
+      "max_probability": 0.8001402616500854,
+      "mean_probability": 0.8001402616500854
+    }
+  ]
+}
