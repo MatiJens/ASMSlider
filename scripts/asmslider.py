@@ -19,11 +19,14 @@ logging.basicConfig(
 
 
 class ASMSlider:
-    _MLP_WEIGHTS = Path(__file__).parent.parent / "models" / "best_model.pt"
+    _DEFAULT_WEIGHTS = Path(__file__).parent.parent / "models" / "best_model.pt"
 
-    def __init__(self, batch_size=2048):
+    def __init__(self, batch_size=2048, checkpoint=None, model_type="mlp", pooling="mean"):
         self.batch_size = batch_size
-        self.classifier = EmbeddingsClassifier(checkpoint_path=str(self._MLP_WEIGHTS))
+        self.model_type = model_type
+        self.pooling = pooling
+        checkpoint = checkpoint or str(self._DEFAULT_WEIGHTS)
+        self.classifier = EmbeddingsClassifier(checkpoint_path=checkpoint, model_type=model_type)
         logger.info("Models loaded.")
 
     def scan(
@@ -52,7 +55,7 @@ class ASMSlider:
             logger.info(f"{name}: {len(hits)} hits found.")
 
         out_file = os.path.join(
-            output_dir, f"{prefix}_mlp_{Path(input_fasta).stem}.json"
+            output_dir, f"{prefix}_{self.model_type}_{Path(input_fasta).stem}.json"
         )
         with open(out_file, "w") as f:
             json.dump(all_results, f, indent=2)
@@ -66,7 +69,7 @@ class ASMSlider:
         fragments = [sequence[s : s + window_size] for s in starts]
 
         embeddings = EmbeddingsGenerator.generate_from_list(
-            fragments, pooling="mean", batch_size=self.batch_size
+            fragments, pooling=self.pooling, batch_size=self.batch_size
         )
         probas = self.classifier.predict(embeddings)
         logger.info(
@@ -116,12 +119,28 @@ def create_parser():
     parser.add_argument("--threshold", type=float, default=0.8)
     parser.add_argument("--merge-distance", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=2048)
+    parser.add_argument(
+        "--checkpoint", type=str, default=None, help="Path to model checkpoint (.pt)."
+    )
+    parser.add_argument(
+        "--model", type=str, default="mlp", choices=["mlp", "cnn"],
+        help="Model architecture (default: mlp)."
+    )
+    parser.add_argument(
+        "--pooling", type=str, default="mean",
+        help="Embedding pooling: 'mean', 'max', or omit for per-residue (default: mean)."
+    )
     return parser
 
 
 def main():
     args = create_parser().parse_args()
-    slider = ASMSlider(batch_size=args.batch_size)
+    slider = ASMSlider(
+        batch_size=args.batch_size,
+        checkpoint=args.checkpoint,
+        model_type=args.model,
+        pooling=args.pooling,
+    )
     slider.scan(
         input_fasta=args.input_fasta,
         output_dir=args.output_dir,

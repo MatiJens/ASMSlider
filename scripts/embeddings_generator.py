@@ -37,12 +37,16 @@ class EmbeddingsGenerator:
             h = output.embeddings.float()
             h = h.masked_fill(~mask.unsqueeze(-1), float("-inf"))
             return h.max(dim=1).values.cpu().numpy()
-        else:
+        elif pooling == "mean":
             h = output.embeddings.float()
             m = mask.float().unsqueeze(-1)
             summed = (h * m).sum(dim=1)
             counts = m.sum(dim=1).clamp(min=1)
             return (summed / counts).cpu().numpy()
+        else:  # per-residue
+            h = output.embeddings.float().cpu().numpy()
+            mask_np = mask.cpu().numpy()
+            return [h[i][mask_np[i]] for i in range(len(seq_batch))]
 
     @classmethod
     def _generate_emb(cls, sequences, pooling, batch_size):
@@ -52,9 +56,15 @@ class EmbeddingsGenerator:
             seqs = [
                 s[:2048] for s in sequences[i : i + batch_size]
             ]  # 2048 is maximum seq length for ESMC model
-            all_embeddings.append(cls._process_batch(seqs, pooling))
+            batch_result = cls._process_batch(seqs, pooling)
+            if pooling in ("mean", "max"):
+                all_embeddings.append(batch_result)
+            else:
+                all_embeddings.extend(batch_result)
 
-        return np.concatenate(all_embeddings, axis=0)
+        if pooling in ("mean", "max"):
+            return np.concatenate(all_embeddings, axis=0)
+        return all_embeddings
 
     @classmethod
     def generate_from_file(cls, input_file, output_path, pooling, batch_size):
@@ -63,7 +73,10 @@ class EmbeddingsGenerator:
         sequences = [item["seq"] for item in SequenceLoader.load_fasta(input_file)]
         embeddings = cls._generate_emb(sequences, pooling, batch_size)
         output_file = os.path.join(output_path, Path(input_file).stem)
-        SequenceLoader.save_embeddings(embeddings, output_file)
+        if pooling in ("mean", "max"):
+            SequenceLoader.save_embeddings(embeddings, output_file)
+        else:
+            SequenceLoader.save_per_residue_embeddings(embeddings, output_file)
 
     @classmethod
     def generate_from_list(cls, sequences, pooling, batch_size):
@@ -80,7 +93,9 @@ def create_parser():
     parser.add_argument(
         "--output-path", required=True, help="Directory where results will be saved."
     )
-    parser.add_argument("--pooling", default="mean", help="Type of pooling (mean/max).")
+    parser.add_argument(
+        "--pooling", default=None, help="Type of pooling: 'mean' or 'max'. Omit for per-residue embeddings."
+    )
     parser.add_argument(
         "--batch-size", type=int, default=1024, help="Sequences per batch."
     )

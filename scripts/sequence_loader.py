@@ -30,8 +30,26 @@ class SequenceLoader:
         logger.info(f"Saved {embeddings.shape[0]} embeddings to {filepath}")
 
     @staticmethod
+    def save_per_residue_embeddings(embeddings, filepath):
+        """Save per-residue embeddings (variable length) to .npy object array."""
+        os.makedirs(Path(filepath).parent, exist_ok=True)
+        arr = np.empty(len(embeddings), dtype=object)
+        for i, emb in enumerate(embeddings):
+            arr[i] = emb
+        np.save(Path(filepath).with_suffix(".npy"), arr, allow_pickle=True)
+        logger.info(f"Saved {len(embeddings)} per-residue embeddings to {filepath}")
+
+    @staticmethod
     def load_embeddings(filepath):
         """Load .npy embeddings. Returns np.ndarray float32."""
         embeddings = np.load(Path(filepath).with_suffix(".npy")).astype(np.float32)
         logger.info(f"Loaded {embeddings.shape[0]} embeddings {embeddings.shape}")
+        return embeddings
+
+    @staticmethod
+    def load_per_residue_embeddings(filepath):
+        """Load per-residue .npy object array. Returns list of np.ndarray float32."""
+        arr = np.load(Path(filepath).with_suffix(".npy"), allow_pickle=True)
+        embeddings = [emb.astype(np.float32) for emb in arr]
+        logger.info(f"Loaded {len(embeddings)} per-residue embeddings from {filepath}")
         return embeddings
