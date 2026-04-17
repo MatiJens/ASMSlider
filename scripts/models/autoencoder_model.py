@@ -23,6 +23,10 @@ class EmbeddingAutoencoder(nn.Module):
             nn.GELU(),
             nn.Linear(512, input_dim),
         )
+        self.classifier = nn.Sequential(
+            nn.BatchNorm1d(latent_dim),
+            nn.Linear(latent_dim, 1),
+        )
 
     def encode(self, x):
         return self.encoder(x)
@@ -30,7 +34,11 @@ class EmbeddingAutoencoder(nn.Module):
     def decode(self, z):
         return self.decoder(z)
 
+    def classify(self, z):
+        return self.classifier(z).squeeze(-1)
+
     def forward(self, x):
         z = self.encode(x)
         reconstructed = self.decode(z)
-        return reconstructed, z
+        logit = self.classify(z)
+        return reconstructed, logit, z

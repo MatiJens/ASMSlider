@@ -83,12 +83,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    model = MLPModel().to(device)
+    X, y_true = load_test_data(args.input_path)
+
+    model = MLPModel(input_dim=X.shape[1]).to(device)
     model.load_state_dict(
         torch.load(args.checkpoint, weights_only=True, map_location=device)
     )
 
-    X, y_true = load_test_data(args.input_path)
     y_score = get_predictions(model, X, device, args.batch_size)
 
     ap = average_precision_score(y_true, y_score)

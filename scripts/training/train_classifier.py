@@ -107,7 +107,8 @@ def main():
     train_loader = make_loader(args.input_path, "train", args.batch_size, shuffle=True)
     val_loader = make_loader(args.input_path, "val", args.batch_size)
 
-    model = MLPModel().to(device)
+    input_dim = train_loader.dataset.tensors[0].shape[1]
+    model = MLPModel(input_dim=input_dim).to(device)
     criterion = FocalLoss(alpha=args.alpha, gamma=args.gamma)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay

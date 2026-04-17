@@ -1,0 +1,40 @@
+Using device: cuda
+Loaded 819 embeddings (819, 128)
+Loaded 364360 embeddings (364360, 128)
+Loaded 175 embeddings (175, 128)
+Loaded 72872 embeddings (72872, 128)
+Epoch   1 | train_loss: 0.000520 | loss: 0.000341 | mcc: 0.611983 | auprc: 0.757017 | recall: 0.737143 | f1: 0.602804
+New best model saved (val_loss: 0.000341)
+Epoch   2 | train_loss: 0.000310 | loss: 0.000348 | mcc: 0.795329 | auprc: 0.841669 | recall: 0.714286 | f1: 0.791139
+Epoch   3 | train_loss: 0.000248 | loss: 0.000294 | mcc: 0.818537 | auprc: 0.859747 | recall: 0.742857 | f1: 0.815047
+New best model saved (val_loss: 0.000294)
+Epoch   4 | train_loss: 0.000216 | loss: 0.000257 | mcc: 0.823303 | auprc: 0.896043 | recall: 0.731429 | f1: 0.817891
+New best model saved (val_loss: 0.000257)
+Epoch   5 | train_loss: 0.000185 | loss: 0.000302 | mcc: 0.815069 | auprc: 0.872756 | recall: 0.737143 | f1: 0.811321
+Epoch   6 | train_loss: 0.000157 | loss: 0.000260 | mcc: 0.805248 | auprc: 0.867671 | recall: 0.805714 | f1: 0.805714
+Epoch   7 | train_loss: 0.000145 | loss: 0.000320 | mcc: 0.831702 | auprc: 0.883061 | recall: 0.760000 | f1: 0.828660
+Epoch   8 | train_loss: 0.000126 | loss: 0.000387 | mcc: 0.824952 | auprc: 0.887014 | recall: 0.708571 | f1: 0.815789
+Epoch   9 | train_loss: 0.000104 | loss: 0.000307 | mcc: 0.838710 | auprc: 0.889032 | recall: 0.834286 | f1: 0.839080
+Epoch  10 | train_loss: 0.000096 | loss: 0.000217 | mcc: 0.755260 | auprc: 0.910456 | recall: 0.914286 | f1: 0.742459
+New best model saved (val_loss: 0.000217)
+Epoch  11 | train_loss: 0.000086 | loss: 0.000312 | mcc: 0.787859 | auprc: 0.881642 | recall: 0.817143 | f1: 0.787879
+Epoch  12 | train_loss: 0.000086 | loss: 0.000281 | mcc: 0.803056 | auprc: 0.876462 | recall: 0.794286 | f1: 0.803468
+Epoch  13 | train_loss: 0.000088 | loss: 0.000248 | mcc: 0.832074 | auprc: 0.909306 | recall: 0.862857 | f1: 0.831956
+Epoch  14 | train_loss: 0.000073 | loss: 0.000407 | mcc: 0.801938 | auprc: 0.861131 | recall: 0.760000 | f1: 0.801205
+Epoch  15 | train_loss: 0.000071 | loss: 0.000355 | mcc: 0.811679 | auprc: 0.892579 | recall: 0.788571 | f1: 0.811765
+Epoch  16 | train_loss: 0.000072 | loss: 0.000344 | mcc: 0.850512 | auprc: 0.902091 | recall: 0.777143 | f1: 0.847352
+Epoch  17 | train_loss: 0.000066 | loss: 0.000356 | mcc: 0.714015 | auprc: 0.878824 | recall: 0.862857 | f1: 0.702326
+Epoch  18 | train_loss: 0.000068 | loss: 0.000316 | mcc: 0.832913 | auprc: 0.905678 | recall: 0.794286 | f1: 0.832335
+Epoch  19 | train_loss: 0.000049 | loss: 0.000473 | mcc: 0.859108 | auprc: 0.897247 | recall: 0.811429 | f1: 0.858006
+Epoch  20 | train_loss: 0.000048 | loss: 0.000413 | mcc: 0.776140 | auprc: 0.867272 | recall: 0.811429 | f1: 0.775956
+Epoch  21 | train_loss: 0.000046 | loss: 0.000353 | mcc: 0.855993 | auprc: 0.908649 | recall: 0.851429 | f1: 0.856322
+Epoch  22 | train_loss: 0.000051 | loss: 0.000278 | mcc: 0.790070 | auprc: 0.897234 | recall: 0.874286 | f1: 0.786632
+Epoch  23 | train_loss: 0.000054 | loss: 0.000442 | mcc: 0.776140 | auprc: 0.874388 | recall: 0.811429 | f1: 0.775956
+Epoch  24 | train_loss: 0.000050 | loss: 0.000395 | mcc: 0.826547 | auprc: 0.903549 | recall: 0.857143 | f1: 0.826446
+Epoch  25 | train_loss: 0.000041 | loss: 0.000428 | mcc: 0.848610 | auprc: 0.912831 | recall: 0.834286 | f1: 0.848837
+Early stopping after 25 epochs (patience=15)
+Loaded 181 embeddings (181, 128)
+Loaded 92 embeddings (92, 128)
+Loaded 78 embeddings (78, 128)
+Loaded 437236 embeddings (437236, 128)
+Test set: loss: 0.0006 | mcc: 0.3653 | auprc: 0.5173 | recall: 0.5613 | f1: 0.3350

@@ -9,6 +9,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from sklearn.metrics import matthews_corrcoef, average_precision_score
+
+from utils.focal_loss import FocalLoss
 from utils.sequence_loader import load_embeddings_dir
 from models.autoencoder_model import EmbeddingAutoencoder
 from training.training_utils import train_loop
@@ -19,7 +22,8 @@ def load_split(base_path, split):
     pos = load_embeddings_dir(p / "positive" / split)
     neg = load_embeddings_dir(p / "negative" / split)
     X = np.concatenate([pos, neg])
-    return TensorDataset(torch.from_numpy(X))
+    y = np.array([1] * len(pos) + [0] * len(neg), dtype=np.float32)
+    return TensorDataset(torch.from_numpy(X), torch.from_numpy(y))
 
 
 def make_loader(input_path, split, batch_size, shuffle=False):
@@ -27,38 +31,79 @@ def make_loader(input_path, split, batch_size, shuffle=False):
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, pin_memory=True)
 
 
-def train_one_epoch(model, loader, optimizer, *, criterion, device):
+def train_one_epoch(
+    model,
+    loader,
+    optimizer,
+    *,
+    rec_criterion,
+    cls_criterion,
+    lambda_rec,
+    lambda_cls,
+    device,
+):
     model.train()
     total_loss = 0.0
+    total_rec = 0.0
+    total_cls = 0.0
     n_batches = 0
-    for (x,) in loader:
-        x = x.to(device)
+    for x, y in loader:
+        x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
-        reconstructed, _ = model(x)
-        loss = criterion(reconstructed, x)
+        reconstructed, logit, _ = model(x)
+        rec_loss = rec_criterion(reconstructed, x)
+        cls_loss = cls_criterion(logit, y)
+        loss = lambda_rec * rec_loss + lambda_cls * cls_loss
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
+        total_rec += rec_loss.item()
+        total_cls += cls_loss.item()
         n_batches += 1
     return total_loss / n_batches
 
 
 @torch.no_grad()
-def evaluate(model, loader, *, criterion, device):
+def evaluate(
+    model, loader, *, rec_criterion, cls_criterion, lambda_rec, lambda_cls, device
+):
     model.eval()
     total_loss = 0.0
+    total_rec = 0.0
+    total_cls = 0.0
     n_batches = 0
-    for (x,) in loader:
-        x = x.to(device)
-        reconstructed, _ = model(x)
-        total_loss += criterion(reconstructed, x).item()
+    all_probs = []
+    all_targets = []
+
+    for x, y in loader:
+        x, y = x.to(device), y.to(device)
+        reconstructed, logit, _ = model(x)
+        rec_loss = rec_criterion(reconstructed, x)
+        cls_loss = cls_criterion(logit, y)
+        loss = lambda_rec * rec_loss + lambda_cls * cls_loss
+        total_loss += loss.item()
+        total_rec += rec_loss.item()
+        total_cls += cls_loss.item()
         n_batches += 1
-    return {"loss": total_loss / n_batches}
+        all_probs.append(torch.sigmoid(logit).cpu())
+        all_targets.append(y.cpu())
+
+    probs = torch.cat(all_probs).numpy()
+    targets = torch.cat(all_targets).numpy()
+    preds = (probs >= 0.5).astype(int)
+
+    return {
+        "loss": total_loss / n_batches,
+        "rec": total_rec / n_batches,
+        "cls": total_cls / n_batches,
+        "mcc": matthews_corrcoef(targets, preds),
+        "auprc": average_precision_score(targets, probs),
+    }
 
 
 def create_parser():
     parser = argparse.ArgumentParser(
-        description="Train autoencoder for embedding dimensionality reduction."
+        description="Train supervised autoencoder (reconstruction + classification)."
     )
     parser.add_argument(
         "--input-path",
@@ -66,42 +111,28 @@ def create_parser():
         required=True,
         help="Directory with positive/negative embedding dirs.",
     )
+    parser.add_argument("--input-dim", type=int, default=1152)
+    parser.add_argument("--latent-dim", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--max-epochs", type=int, default=200)
+    parser.add_argument("--patience", type=int, default=20)
     parser.add_argument(
-        "--input-dim",
-        type=int,
-        default=1152,
-        help="Input embedding dimension (default: 1152).",
+        "--lambda-rec",
+        type=float,
+        default=1.0,
+        help="Weight for reconstruction loss (default: 1.0).",
     )
     parser.add_argument(
-        "--latent-dim",
-        type=int,
-        default=128,
-        help="Latent (reduced) dimension (default: 128).",
+        "--lambda-cls",
+        type=float,
+        default=1.0,
+        help="Weight for classification loss (default: 1.0).",
     )
-    parser.add_argument(
-        "--lr", type=float, default=1e-3, help="Learning rate (default: 1e-3)."
-    )
-    parser.add_argument(
-        "--weight-decay", type=float, default=1e-4, help="Weight decay (default: 1e-4)."
-    )
-    parser.add_argument(
-        "--batch-size", type=int, default=256, help="Batch size (default: 256)."
-    )
-    parser.add_argument(
-        "--max-epochs", type=int, default=200, help="Max epochs (default: 200)."
-    )
-    parser.add_argument(
-        "--patience",
-        type=int,
-        default=20,
-        help="Early stopping patience (default: 20).",
-    )
-    parser.add_argument(
-        "--checkpoint-dir",
-        type=str,
-        default="checkpoints",
-        help="Directory for saving checkpoints.",
-    )
+    parser.add_argument("--alpha", type=float, default=0.25, help="Focal loss alpha.")
+    parser.add_argument("--gamma", type=float, default=2.0, help="Focal loss gamma.")
+    parser.add_argument("--checkpoint-dir", type=str, default="checkpoints")
     return parser
 
 
@@ -118,7 +149,8 @@ def main():
     model = EmbeddingAutoencoder(
         input_dim=args.input_dim, latent_dim=args.latent_dim
     ).to(device)
-    criterion = nn.MSELoss()
+    rec_criterion = nn.MSELoss()
+    cls_criterion = FocalLoss(alpha=args.alpha, gamma=args.gamma)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
@@ -126,8 +158,15 @@ def main():
     ckpt_dir = Path(args.checkpoint_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    train_fn = partial(train_one_epoch, criterion=criterion, device=device)
-    eval_fn = partial(evaluate, criterion=criterion, device=device)
+    loss_kwargs = dict(
+        rec_criterion=rec_criterion,
+        cls_criterion=cls_criterion,
+        lambda_rec=args.lambda_rec,
+        lambda_cls=args.lambda_cls,
+        device=device,
+    )
+    train_fn = partial(train_one_epoch, **loss_kwargs)
+    eval_fn = partial(evaluate, **loss_kwargs)
 
     best_val_loss = train_loop(
         model,

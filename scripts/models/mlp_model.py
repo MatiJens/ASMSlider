@@ -2,11 +2,11 @@ import torch.nn as nn
 
 
 class MLPModel(nn.Module):
-    def __init__(self):
+    def __init__(self, input_dim=1152):
         super().__init__()
         self.network = nn.Sequential(
-            nn.BatchNorm1d(1152),
-            nn.Linear(1152, 512),
+            nn.BatchNorm1d(input_dim),
+            nn.Linear(input_dim, 512),
             nn.BatchNorm1d(512),
             nn.GELU(),
             nn.Linear(512, 256),

@@ -1,0 +1,30 @@
+Using device: cuda
+Loaded 819 embeddings (819, 128)
+Loaded 364360 embeddings (364360, 128)
+Loaded 175 embeddings (175, 128)
+Loaded 72872 embeddings (72872, 128)
+Epoch   1 | train_loss: 0.000521 | loss: 0.000430 | mcc: 0.795713 | auprc: 0.815583 | recall: 0.691429 | f1: 0.788274
+New best model saved (val_loss: 0.000430)
+Epoch   2 | train_loss: 0.000335 | loss: 0.000341 | mcc: 0.699389 | auprc: 0.817822 | recall: 0.742857 | f1: 0.698925
+New best model saved (val_loss: 0.000341)
+Epoch   3 | train_loss: 0.000256 | loss: 0.000424 | mcc: 0.796184 | auprc: 0.866238 | recall: 0.645714 | f1: 0.779310
+Epoch   4 | train_loss: 0.000195 | loss: 0.000366 | mcc: 0.839059 | auprc: 0.868263 | recall: 0.777143 | f1: 0.836923
+Epoch   5 | train_loss: 0.000189 | loss: 0.000413 | mcc: 0.807461 | auprc: 0.870034 | recall: 0.680000 | f1: 0.795987
+Epoch   6 | train_loss: 0.000142 | loss: 0.000401 | mcc: 0.839648 | auprc: 0.878519 | recall: 0.805714 | f1: 0.839286
+Epoch   7 | train_loss: 0.000127 | loss: 0.000466 | mcc: 0.808850 | auprc: 0.880912 | recall: 0.800000 | f1: 0.809249
+Epoch   8 | train_loss: 0.000124 | loss: 0.000570 | mcc: 0.834746 | auprc: 0.889788 | recall: 0.708571 | f1: 0.823920
+Epoch   9 | train_loss: 0.000107 | loss: 0.000587 | mcc: 0.842649 | auprc: 0.874214 | recall: 0.748571 | f1: 0.837061
+Epoch  10 | train_loss: 0.000087 | loss: 0.000483 | mcc: 0.850103 | auprc: 0.882260 | recall: 0.771429 | f1: 0.846395
+Epoch  11 | train_loss: 0.000087 | loss: 0.000523 | mcc: 0.853636 | auprc: 0.892576 | recall: 0.811429 | f1: 0.852853
+Epoch  12 | train_loss: 0.000085 | loss: 0.000810 | mcc: 0.838291 | auprc: 0.879150 | recall: 0.720000 | f1: 0.828947
+Epoch  13 | train_loss: 0.000078 | loss: 0.000700 | mcc: 0.848629 | auprc: 0.886391 | recall: 0.742857 | f1: 0.841424
+Epoch  14 | train_loss: 0.000073 | loss: 0.000647 | mcc: 0.854292 | auprc: 0.890970 | recall: 0.788571 | f1: 0.851852
+Epoch  15 | train_loss: 0.000069 | loss: 0.000608 | mcc: 0.836200 | auprc: 0.878771 | recall: 0.742857 | f1: 0.830671
+Epoch  16 | train_loss: 0.000064 | loss: 0.000699 | mcc: 0.869043 | auprc: 0.894114 | recall: 0.788571 | f1: 0.865204
+Epoch  17 | train_loss: 0.000062 | loss: 0.000806 | mcc: 0.851702 | auprc: 0.896972 | recall: 0.737143 | f1: 0.843137
+Early stopping after 17 epochs (patience=15)
+Loaded 181 embeddings (181, 128)
+Loaded 92 embeddings (92, 128)
+Loaded 78 embeddings (78, 128)
+Loaded 437236 embeddings (437236, 128)
+Test set: loss: 0.0002 | mcc: 0.4690 | auprc: 0.5403 | recall: 0.5926 | f1: 0.4571
