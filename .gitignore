@@ -15,5 +15,5 @@ emb/
 slider_data/
 .vscode/
 results/
-models/
+models_weights/
 training_logs/
