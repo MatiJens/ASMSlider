@@ -16,3 +16,4 @@ slider_data/
 .vscode/
 results/
 models/
+training_logs/
