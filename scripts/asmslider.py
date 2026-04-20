@@ -17,17 +17,21 @@ from modules.embeddings_generator import EmbeddingsGenerator
 class ASMSlider:
     _DEFAULT_WEIGHTS = Path(__file__).parent.parent / "models" / "best_model.pt"
 
-    def __init__(self, batch_size=2048, checkpoint=None, pooling="mean",
-                 encoder_checkpoint=None, latent_dim=128):
+    def __init__(
+        self,
+        batch_size=2048,
+        checkpoint=None,
+        pooling="max",
+        encoder_checkpoint=None,
+        latent_dim=128,
+    ):
         self.batch_size = batch_size
         self.pooling = pooling
         checkpoint = checkpoint or str(self._DEFAULT_WEIGHTS)
         self.classifier = EmbeddingsClassifier(checkpoint_path=checkpoint)
         self.encoder = None
         if encoder_checkpoint:
-            self.encoder = EmbeddingsEncoder(
-                encoder_checkpoint, latent_dim=latent_dim
-            )
+            self.encoder = EmbeddingsEncoder(encoder_checkpoint, latent_dim=latent_dim)
         print("Models loaded.")
 
     def scan(
@@ -55,9 +59,7 @@ class ASMSlider:
                 all_results[name] = hits
             print(f"{name}: {len(hits)} hits found.")
 
-        out_file = os.path.join(
-            output_dir, f"{prefix}_{Path(input_fasta).stem}.json"
-        )
+        out_file = os.path.join(output_dir, f"{prefix}_{Path(input_fasta).stem}.json")
         with open(out_file, "w") as f:
             json.dump(all_results, f, indent=2)
         print(f"Results saved to {out_file}")
@@ -124,18 +126,27 @@ def create_parser():
     parser.add_argument("--merge-distance", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument(
-        "--checkpoint", type=str, default=None, help="Path to classifier checkpoint (.pt)."
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Path to classifier checkpoint (.pt).",
     )
     parser.add_argument(
-        "--pooling", type=str, default="mean",
-        help="Embedding pooling: 'mean' or 'max' (default: mean)."
+        "--pooling",
+        type=str,
+        default="mean",
+        help="Embedding pooling: 'mean' or 'max' (default: mean).",
     )
     parser.add_argument(
-        "--encoder-checkpoint", type=str, default=None,
+        "--encoder-checkpoint",
+        type=str,
+        default=None,
         help="Path to trained autoencoder checkpoint. If provided, embeddings are reduced before classification.",
     )
     parser.add_argument(
-        "--latent-dim", type=int, default=128,
+        "--latent-dim",
+        type=int,
+        default=128,
         help="Encoder latent dimension (default: 128). Only used with --encoder-checkpoint.",
     )
     return parser

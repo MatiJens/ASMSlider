@@ -6,18 +6,18 @@ class MLPModel(nn.Module):
         super().__init__()
         self.network = nn.Sequential(
             nn.BatchNorm1d(input_dim),
-            nn.Linear(input_dim, 512),
-            nn.BatchNorm1d(512),
+            nn.Linear(input_dim, input_dim // 2),
+            nn.BatchNorm1d(input_dim // 2),
             nn.GELU(),
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
+            nn.Linear(input_dim // 2, input_dim // 4),
+            nn.BatchNorm1d(input_dim // 4),
             nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(256, 64),
-            nn.BatchNorm1d(64),
+            nn.Dropout(0.3),
+            nn.Linear(input_dim // 4, input_dim // 8),
+            nn.BatchNorm1d(input_dim // 8),
             nn.GELU(),
-            nn.Dropout(0.4),
-            nn.Linear(64, 1),
+            nn.Dropout(0.5),
+            nn.Linear(input_dim // 8, 1),
         )
 
     def forward(self, x):

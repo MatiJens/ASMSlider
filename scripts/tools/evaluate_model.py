@@ -4,12 +4,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from sklearn.metrics import (
     average_precision_score,
     f1_score,
     matthews_corrcoef,
+    precision_recall_curve,
     roc_curve,
 )
 
@@ -43,6 +45,26 @@ def tpr_at_fpr(y_true, y_score, target_fpr):
     idx = np.searchsorted(fpr, target_fpr, side="right") - 1
     idx = max(idx, 0)
     return tpr[idx]
+
+
+def plot_pr_curve(y_true, y_score, ap, output_path):
+    precision, recall, _ = precision_recall_curve(y_true, y_score)
+    baseline = y_true.sum() / len(y_true)
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.plot(recall, precision, label=f"PR curve (AUPRC = {ap:.4f})")
+    ax.axhline(baseline, linestyle="--", color="gray",
+               label=f"Baseline (positive rate = {baseline:.4f})")
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1.02)
+    ax.set_title("Precision-Recall curve")
+    ax.legend(loc="best")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
 
 
 def best_f1_threshold(y_true, y_score):
@@ -125,6 +147,10 @@ def main():
         for k, v in metrics.items():
             f.write(f"{k}: {v}\n")
     print(f"Metrics saved to {metrics_path}")
+
+    pr_path = out_dir / "pr_curve.png"
+    plot_pr_curve(y_true, y_score, ap, pr_path)
+    print(f"PR curve saved to {pr_path}")
 
 
 if __name__ == "__main__":

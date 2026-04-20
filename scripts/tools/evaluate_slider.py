@@ -3,270 +3,138 @@ import csv
 import json
 from pathlib import Path
 
+CLOSE_TOL = 15
 
-def load_reference(tsv_path):
-    """Load reference ASM annotations from TSV.
 
-    Returns dict: seq_id -> list of (beg, end) tuples.
-    Entries with '-' as beg/end are treated as whole-sequence hits (no position info)
-    and stored as (None, None).
-    """
+def load_reference(path):
+    """Load reference ASM regions. Converts 1-indexed inclusive (biology) to
+    0-indexed half-open to match slider output."""
     ref = {}
-    with open(tsv_path) as f:
-        reader = csv.DictReader(f, delimiter="\t")
-        for row in reader:
-            sid = row["seq_id"]
-            beg = row["asm_beg"].strip()
-            end = row["asm_end"].strip()
-            if beg == "-" or end == "-":
-                region = (None, None)
-            else:
-                region = (int(beg), int(end))
-            ref.setdefault(sid, []).append(region)
+    with open(path) as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            beg, end = row["asm_beg"].strip(), row["asm_end"].strip()
+            region = (
+                (None, None) if beg == "-" or end == "-" else (int(beg) - 1, int(end))
+            )
+            ref.setdefault(row["seq_id"], []).append(region)
     return ref
 
 
-def load_predictions(json_path):
-    """Load slider output JSON.
-
-    Returns dict: seq_id -> list of (start, end) tuples.
-    """
-    with open(json_path) as f:
+def load_predictions(path):
+    with open(path) as f:
         data = json.load(f)
-    preds = {}
-    for sid, hits in data.items():
-        if hits:
-            preds[sid] = [(h["start"], h["end"]) for h in hits]
-    return preds
-
-
-def regions_overlap(ref_region, pred_region):
-    """Check if a reference region and predicted region overlap.
-
-    If reference has no position info (None, None), any prediction on that
-    sequence counts as overlapping.
-    """
-    ref_beg, ref_end = ref_region
-    pred_beg, pred_end = pred_region
-    if ref_beg is None:
-        return True
-    return pred_beg < ref_end and pred_end > ref_beg
-
-
-def overlap_length(ref_region, pred_region):
-    """Compute overlap length between two regions. Returns 0 if no position info."""
-    ref_beg, ref_end = ref_region
-    pred_beg, pred_end = pred_region
-    if ref_beg is None:
-        return 0
-    return max(0, min(ref_end, pred_end) - max(ref_beg, pred_beg))
-
-
-def evaluate(ref, preds):
-    """Compute evaluation metrics.
-
-    Sequence-level metrics:
-      - TP: reference sequence found in predictions (at least one overlapping hit)
-      - FN: reference sequence not found or no overlapping hit
-      - FP: predicted sequence not in reference at all
-
-    Region-level metrics (only for references with position info):
-      - Region recall: fraction of reference regions that overlap with at least one prediction
-      - Mean IoU: average intersection-over-union for matched reference regions
-    """
-    ref_ids = set(ref.keys())
-    pred_ids = set(preds.keys())
-
-    # --- sequence-level ---
-    seq_tp = 0
-    seq_fn = 0
-    for sid in ref_ids:
-        if sid in pred_ids:
-            ref_regions = ref[sid]
-            pred_regions = preds[sid]
-            has_overlap = any(
-                regions_overlap(rr, pr)
-                for rr in ref_regions
-                for pr in pred_regions
-            )
-            if has_overlap:
-                seq_tp += 1
-            else:
-                seq_fn += 1
-        else:
-            seq_fn += 1
-
-    seq_fp = len(pred_ids - ref_ids)
-
-    seq_precision = seq_tp / (seq_tp + seq_fp) if (seq_tp + seq_fp) > 0 else 0.0
-    seq_recall = seq_tp / (seq_tp + seq_fn) if (seq_tp + seq_fn) > 0 else 0.0
-    seq_f1 = (
-        2 * seq_precision * seq_recall / (seq_precision + seq_recall)
-        if (seq_precision + seq_recall) > 0
-        else 0.0
-    )
-
-    # --- region-level (only where positions are known) ---
-    region_total = 0
-    region_found = 0
-    ious = []
-
-    for sid, ref_regions in ref.items():
-        pred_regions = preds.get(sid, [])
-        for rr in ref_regions:
-            if rr[0] is None:
-                continue
-            region_total += 1
-            best_iou = 0.0
-            matched = False
-            for pr in pred_regions:
-                if regions_overlap(rr, pr):
-                    matched = True
-                    inter = overlap_length(rr, pr)
-                    union = (rr[1] - rr[0]) + (pr[1] - pr[0]) - inter
-                    iou = inter / union if union > 0 else 0.0
-                    best_iou = max(best_iou, iou)
-            if matched:
-                region_found += 1
-                ious.append(best_iou)
-
-    region_recall = region_found / region_total if region_total > 0 else 0.0
-    mean_iou = sum(ious) / len(ious) if ious else 0.0
-
     return {
-        "seq_tp": seq_tp,
-        "seq_fp": seq_fp,
-        "seq_fn": seq_fn,
-        "seq_precision": seq_precision,
-        "seq_recall": seq_recall,
-        "seq_f1": seq_f1,
-        "region_total": region_total,
-        "region_found": region_found,
-        "region_recall": region_recall,
-        "mean_iou": mean_iou,
+        sid: [(h["start"], h["end"]) for h in hits]
+        for sid, hits in data.items()
+        if hits
     }
 
 
-def print_metrics(name, metrics):
-    print(f"=== {name} ===")
-    print(f"  Sequence-level: TP={metrics['seq_tp']}  FP={metrics['seq_fp']}  FN={metrics['seq_fn']}")
-    print(f"  Seq Precision:  {metrics['seq_precision']:.4f}")
-    print(f"  Seq Recall:     {metrics['seq_recall']:.4f}")
-    print(f"  Seq F1:         {metrics['seq_f1']:.4f}")
-    if metrics["region_total"] > 0:
-        print(f"  Region Recall:  {metrics['region_found']}/{metrics['region_total']} = {metrics['region_recall']:.4f}")
-        print(f"  Mean IoU:       {metrics['mean_iou']:.4f}")
-    else:
-        print("  Region Recall:  N/A (no positional annotations)")
+def overlaps(r, p):
+    return r[0] is None or (p[0] < r[1] and p[1] > r[0])
 
 
-def print_missed(name, ref, preds):
-    """Print reference sequences that were not detected."""
-    missed = []
+def close_match(r, p):
+    return (
+        r[0] is not None
+        and abs(p[0] - r[0]) <= CLOSE_TOL
+        and abs(p[1] - r[1]) <= CLOSE_TOL
+    )
+
+
+def evaluate(ref, preds):
+    tp = fn = 0
     for sid, ref_regions in ref.items():
-        if sid not in preds:
-            missed.append((sid, "not_found"))
+        pred_regions = preds.get(sid, [])
+        if any(overlaps(r, p) for r in ref_regions for p in pred_regions):
+            tp += 1
         else:
-            pred_regions = preds[sid]
-            has_overlap = any(
-                regions_overlap(rr, pr)
-                for rr in ref_regions
-                for pr in pred_regions
-            )
-            if not has_overlap:
-                missed.append((sid, "no_overlap"))
-    if missed:
-        print(f"  Missed in {name}:")
-        for sid, reason in missed:
-            print(f"    {sid} ({reason})")
+            fn += 1
+    fp = len(set(preds) - set(ref))
+
+    close_tp = close_fn = close_fp = close_skipped = 0
+    for sid, ref_regions in ref.items():
+        pred_regions = preds.get(sid, [])
+        for r in ref_regions:
+            if r[0] is None:
+                continue
+            if any(close_match(r, p) for p in pred_regions):
+                close_tp += 1
+            else:
+                close_fn += 1
+    for sid, pred_regions in preds.items():
+        positional = [r for r in ref.get(sid, []) if r[0] is not None]
+        if sid in ref and not positional:
+            close_skipped += len(pred_regions)
+            continue
+        for p in pred_regions:
+            if not any(close_match(r, p) for r in positional):
+                close_fp += 1
+
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    close_precision = close_tp / (close_tp + close_fp) if close_tp + close_fp else 0.0
+    close_recall = close_tp / (close_tp + close_fn) if close_tp + close_fn else 0.0
+    close_f1 = (
+        2 * close_precision * close_recall / (close_precision + close_recall)
+        if close_precision + close_recall
+        else 0.0
+    )
+    return {
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "close_tp": close_tp,
+        "close_fp": close_fp,
+        "close_fn": close_fn,
+        "close_skipped": close_skipped,
+        "close_precision": close_precision,
+        "close_recall": close_recall,
+        "close_f1": close_f1,
+    }
+
+
+def print_metrics(name, m):
+    print(f"=== {name} ===")
+    print(f"  TP={m['tp']}  FP={m['fp']}  FN={m['fn']}")
+    print(f"  Precision: {m['precision']:.4f}")
+    print(f"  Recall:    {m['recall']:.4f}")
+    print(f"  F1:        {m['f1']:.4f}")
+    print(f"  --- Close matches (±{CLOSE_TOL} aa) ---")
+    print(
+        f"  TP={m['close_tp']}  FP={m['close_fp']}  FN={m['close_fn']}  skipped={m['close_skipped']}"
+    )
+    print(f"  Precision: {m['close_precision']:.4f}")
+    print(f"  Recall:    {m['close_recall']:.4f}")
+    print(f"  F1:        {m['close_f1']:.4f}")
 
 
 def create_parser():
-    parser = argparse.ArgumentParser(
+    p = argparse.ArgumentParser(
         description="Evaluate ASMSlider predictions against reference ASM annotations."
     )
-    parser.add_argument(
-        "--predictions", type=str, required=True, nargs="+",
-        help="Path(s) to slider output JSON file(s).",
-    )
-    parser.add_argument(
-        "--references", type=str, required=True, nargs="+",
-        help="Path(s) to reference TSV file(s). Matched to predictions by order.",
-    )
-    parser.add_argument(
-        "--output", type=str, default=None,
-        help="Optional path to save aggregated metrics as JSON.",
-    )
-    return parser
+    p.add_argument("--predictions", required=True)
+    p.add_argument("--reference", required=True)
+    p.add_argument("--output", default=None)
+    return p
 
 
 def main():
     args = create_parser().parse_args()
-
-    if len(args.predictions) != len(args.references):
-        raise ValueError(
-            f"Number of prediction files ({len(args.predictions)}) must match "
-            f"number of reference files ({len(args.references)})."
-        )
-
-    all_metrics = {}
-    agg_tp, agg_fp, agg_fn = 0, 0, 0
-    agg_region_total, agg_region_found = 0, 0
-
-    for pred_path, ref_path in zip(args.predictions, args.references):
-        name = Path(ref_path).stem
-        ref = load_reference(ref_path)
-        preds = load_predictions(pred_path)
-        metrics = evaluate(ref, preds)
-
-        print_metrics(name, metrics)
-        print_missed(name, ref, preds)
-        all_metrics[name] = metrics
-
-        agg_tp += metrics["seq_tp"]
-        agg_fp += metrics["seq_fp"]
-        agg_fn += metrics["seq_fn"]
-        agg_region_total += metrics["region_total"]
-        agg_region_found += metrics["region_found"]
-
-    # aggregated
-    if len(args.predictions) > 1:
-        agg_prec = agg_tp / (agg_tp + agg_fp) if (agg_tp + agg_fp) > 0 else 0.0
-        agg_rec = agg_tp / (agg_tp + agg_fn) if (agg_tp + agg_fn) > 0 else 0.0
-        agg_f1 = (
-            2 * agg_prec * agg_rec / (agg_prec + agg_rec)
-            if (agg_prec + agg_rec) > 0
-            else 0.0
-        )
-        agg_region_rec = (
-            agg_region_found / agg_region_total if agg_region_total > 0 else 0.0
-        )
-
-        print("=== AGGREGATED ===")
-        print(f"  Sequence-level: TP={agg_tp}  FP={agg_fp}  FN={agg_fn}")
-        print(f"  Seq Precision:  {agg_prec:.4f}")
-        print(f"  Seq Recall:     {agg_rec:.4f}")
-        print(f"  Seq F1:         {agg_f1:.4f}")
-        if agg_region_total > 0:
-            print(f"  Region Recall:  {agg_region_found}/{agg_region_total} = {agg_region_rec:.4f}")
-
-        all_metrics["aggregated"] = {
-            "seq_tp": agg_tp,
-            "seq_fp": agg_fp,
-            "seq_fn": agg_fn,
-            "seq_precision": agg_prec,
-            "seq_recall": agg_rec,
-            "seq_f1": agg_f1,
-            "region_total": agg_region_total,
-            "region_found": agg_region_found,
-            "region_recall": agg_region_rec,
-        }
+    name = Path(args.reference).stem
+    metrics = evaluate(
+        load_reference(args.reference), load_predictions(args.predictions)
+    )
+    print_metrics(name, metrics)
 
     if args.output:
         Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         with open(args.output, "w") as f:
-            json.dump(all_metrics, f, indent=2)
-        print(f"Metrics saved to {args.output}")
+            json.dump(metrics, f, indent=2)
 
 
 if __name__ == "__main__":

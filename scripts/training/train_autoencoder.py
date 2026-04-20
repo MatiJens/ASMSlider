@@ -168,7 +168,7 @@ def main():
     train_fn = partial(train_one_epoch, **loss_kwargs)
     eval_fn = partial(evaluate, **loss_kwargs)
 
-    best_val_loss = train_loop(
+    history = train_loop(
         model,
         train_loader,
         val_loader,
@@ -179,7 +179,7 @@ def main():
         args.patience,
         ckpt_dir / "best_autoencoder.pt",
     )
-    print(f"Best val_loss: {best_val_loss:.6f}")
+    print(f"Best val_loss: {history['best_val_loss']:.6f}")
 
 
 if __name__ == "__main__":
