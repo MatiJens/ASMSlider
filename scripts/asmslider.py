@@ -1,7 +1,7 @@
 import argparse
 import json
-import sys
 import os
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -10,53 +10,37 @@ import numpy as np
 from Bio import SeqIO
 
 from modules.embeddings_classifier import EmbeddingsClassifier
-from modules.embeddings_encoder import EmbeddingsEncoder
 from modules.embeddings_generator import EmbeddingsGenerator
 
 
 class ASMSlider:
-    _DEFAULT_WEIGHTS = Path(__file__).parent.parent / "models" / "best_model.pt"
-
-    def __init__(
-        self,
-        batch_size=2048,
-        checkpoint=None,
-        pooling="max",
-        encoder_checkpoint=None,
-        latent_dim=128,
-    ):
+    def __init__(self, checkpoint, pooling="max", encoder_checkpoint=None,
+                 latent_dim=128, batch_size=2048):
         self.batch_size = batch_size
         self.pooling = pooling
-        checkpoint = checkpoint or str(self._DEFAULT_WEIGHTS)
-        self.classifier = EmbeddingsClassifier(checkpoint_path=checkpoint)
-        self.encoder = None
-        if encoder_checkpoint:
-            self.encoder = EmbeddingsEncoder(encoder_checkpoint, latent_dim=latent_dim)
-        print("Models loaded.")
+        self.classifier = EmbeddingsClassifier(
+            checkpoint_path=checkpoint,
+            encoder_path=encoder_checkpoint,
+            latent_dim=latent_dim,
+        )
 
-    def scan(
-        self,
-        input_fasta,
-        output_dir,
-        prefix="",
-        window_size=30,
-        stride=1,
-        threshold=0.8,
-        merge_distance=5,
-    ):
+    def scan(self, input_fasta, output_dir, prefix="", window_size=30,
+             stride=1, threshold=0.8, merge_distance=5):
         os.makedirs(output_dir, exist_ok=True)
-
         sequences = {r.id: str(r.seq) for r in SeqIO.parse(input_fasta, "fasta")}
         print(f"Loaded {len(sequences)} sequences from {input_fasta}.")
 
-        all_results = {}
+        all_results = []
         for name, seq in sequences.items():
             print(f"Scanning {name} (len={len(seq)})...")
-            hits = self._scan_sequence(
-                seq, window_size, stride, threshold, merge_distance
-            )
-            if hits:
-                all_results[name] = hits
+            hits = self._scan_sequence(seq, window_size, stride, threshold, merge_distance)
+            for hit in hits:
+                all_results.append({
+                    "protein": name,
+                    "location": f"{hit['start']}-{hit['end']}",
+                    "sequence": seq[hit["start"]:hit["end"]],
+                    "probability": hit["mean_probability"],
+                })
             print(f"{name}: {len(hits)} hits found.")
 
         out_file = os.path.join(output_dir, f"{prefix}_{Path(input_fasta).stem}.json")
@@ -70,23 +54,12 @@ class ASMSlider:
 
         starts = range(0, len(sequence) - window_size + 1, stride)
         fragments = [sequence[s : s + window_size] for s in starts]
-
-        embeddings = EmbeddingsGenerator.generate_from_list(
-            fragments, pooling=self.pooling, batch_size=self.batch_size
-        )
-        if self.encoder:
-            embeddings = self.encoder.encode(embeddings)
-
+        embeddings = EmbeddingsGenerator.generate(fragments, self.pooling, self.batch_size)
         probas = self.classifier.predict(embeddings)
-        print(
-            f"Window {window_size}: min={probas.min():.4f}, max={probas.max():.4f}, mean={probas.mean():.4f}"
-        )
 
         scores = np.zeros(len(sequence), dtype=np.float32)
         for s, prob in zip(starts, probas):
-            np.maximum(
-                scores[s : s + window_size], prob, out=scores[s : s + window_size]
-            )
+            np.maximum(scores[s : s + window_size], prob, out=scores[s : s + window_size])
 
         return self._merge_hits(scores, threshold, merge_distance)
 
@@ -97,9 +70,7 @@ class ASMSlider:
             return []
 
         hits = []
-        start = above[0]
-        prev = above[0]
-
+        start = prev = above[0]
         for i in above[1:]:
             if i - prev > merge_distance + 1:
                 hits.append({"start": int(start), "end": int(prev + 1)})
@@ -109,57 +80,38 @@ class ASMSlider:
 
         for hit in hits:
             region = scores[hit["start"] : hit["end"]]
-            hit["max_probability"] = float(region.max())
             hit["mean_probability"] = float(region.mean())
-
         return hits
 
 
 def create_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input-fasta", type=str, required=True)
-    parser.add_argument("--output-dir", type=str, required=True)
-    parser.add_argument("--prefix", type=str, default="")
+    parser = argparse.ArgumentParser(description="Sliding-window ASM detection on FASTA sequences.")
+    parser.add_argument("--input-fasta", required=True)
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--checkpoint", required=True,
+                        help="Classifier checkpoint (.pt file or directory with per-fold models).")
+    parser.add_argument("--encoder-checkpoint", default=None,
+                        help="Autoencoder checkpoint (.pt file or directory with per-fold AEs, "
+                             "paired 1:1 with classifiers by sorted order).")
+    parser.add_argument("--latent-dim", type=int, default=128)
+    parser.add_argument("--pooling", default="mean", choices=["mean", "max"])
+    parser.add_argument("--prefix", default="")
     parser.add_argument("--window-size", type=int, default=30)
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--threshold", type=float, default=0.8)
     parser.add_argument("--merge-distance", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=2048)
-    parser.add_argument(
-        "--checkpoint",
-        type=str,
-        default=None,
-        help="Path to classifier checkpoint (.pt).",
-    )
-    parser.add_argument(
-        "--pooling",
-        type=str,
-        default="mean",
-        help="Embedding pooling: 'mean' or 'max' (default: mean).",
-    )
-    parser.add_argument(
-        "--encoder-checkpoint",
-        type=str,
-        default=None,
-        help="Path to trained autoencoder checkpoint. If provided, embeddings are reduced before classification.",
-    )
-    parser.add_argument(
-        "--latent-dim",
-        type=int,
-        default=128,
-        help="Encoder latent dimension (default: 128). Only used with --encoder-checkpoint.",
-    )
     return parser
 
 
 def main():
     args = create_parser().parse_args()
     slider = ASMSlider(
-        batch_size=args.batch_size,
         checkpoint=args.checkpoint,
-        pooling=args.pooling,
         encoder_checkpoint=args.encoder_checkpoint,
         latent_dim=args.latent_dim,
+        pooling=args.pooling,
+        batch_size=args.batch_size,
     )
     slider.scan(
         input_fasta=args.input_fasta,

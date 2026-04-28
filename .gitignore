@@ -17,3 +17,4 @@ slider_data/
 results/
 models_weights/
 training_logs/
+slider_eval/

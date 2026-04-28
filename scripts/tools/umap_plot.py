@@ -6,9 +6,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from umap import UMAP
 
+from models.autoencoder_model import EmbeddingAutoencoder
 from utils.sequence_loader import load_embeddings, load_embeddings_dir
+
+
+@torch.no_grad()
+def encode_with_ae(embeddings, ae_checkpoint, latent_dim, batch_size=1024):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    ae = EmbeddingAutoencoder(input_dim=embeddings.shape[1], latent_dim=latent_dim)
+    ae.load_state_dict(torch.load(ae_checkpoint, weights_only=True, map_location=device))
+    encoder = ae.encoder.to(device).eval()
+
+    x = torch.from_numpy(embeddings.astype(np.float32))
+    out = [encoder(x[i : i + batch_size].to(device)).cpu()
+           for i in range(0, len(x), batch_size)]
+    return torch.cat(out).numpy()
 
 
 def create_parser():
@@ -55,6 +70,15 @@ def create_parser():
         "--dpi", type=int, default=200, help="Output DPI (default: 200)."
     )
     parser.add_argument("--title", type=str, default="UMAP 2D", help="Plot title.")
+    parser.add_argument(
+        "--encoder", type=str, default=None,
+        help="Path to an autoencoder .pt checkpoint. If given, embeddings are encoded "
+             "(1152 -> latent_dim) before UMAP.",
+    )
+    parser.add_argument(
+        "--latent-dim", type=int, default=128,
+        help="AE latent dim (default: 128). Used only with --encoder.",
+    )
     return parser
 
 
@@ -81,6 +105,10 @@ def main():
 
     all_emb = np.concatenate(groups)
     group_ids = np.concatenate([np.full(len(g), i) for i, g in enumerate(groups)])
+
+    if args.encoder:
+        print(f"Encoding with {args.encoder} ({all_emb.shape[1]} -> {args.latent_dim})")
+        all_emb = encode_with_ae(all_emb, args.encoder, args.latent_dim)
 
     reducer = UMAP(
         n_components=2,
