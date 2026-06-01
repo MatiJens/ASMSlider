@@ -4,6 +4,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -11,58 +14,32 @@ from sklearn.metrics import average_precision_score, precision_recall_curve
 
 from models.autoencoder_model import EmbeddingAutoencoder
 from models.mlp_model import MLPModel
-from utils.sequence_loader import load_pos_neg
+from training.train_classifier import load_dataset, make_loader, encode_dataset, predict_probs
 
 
-def load_mlp(ckpt_path, device):
-    state_dict = torch.load(ckpt_path, weights_only=True, map_location=device)
-    input_dim = state_dict["network.0.running_mean"].shape[0]
-    model = MLPModel(input_dim=input_dim).to(device)
-    model.load_state_dict(state_dict)
-    model.eval()
-    return model
+def load_model(mlp_dir, ae_dir, fold, device):
+    mlp_path = Path(mlp_dir) / f"fold_{fold}" / "best_model.pt"
+    cls_state = torch.load(mlp_path, weights_only=True, map_location=device)
+    mlp_input_dim = cls_state["network.0.running_mean"].shape[0]
+    mlp = MLPModel(input_dim=mlp_input_dim)
+    mlp.load_state_dict(cls_state)
+    mlp.to(device).eval()
 
+    encoder = None
+    if ae_dir:
+        ae_path = Path(ae_dir) / f"fold_{fold}" / "best_autoencoder.pt"
+        ae_state = torch.load(ae_path, weights_only=True, map_location=device)
+        ae_input_dim = ae_state["encoder.0.running_mean"].shape[0]
+        ae = EmbeddingAutoencoder(input_dim=ae_input_dim, latent_dim=mlp_input_dim)
+        ae.load_state_dict(ae_state)
+        encoder = ae.encoder.to(device).eval()
 
-def load_encoder(ae_path, input_dim, latent_dim, device):
-    ae = EmbeddingAutoencoder(input_dim=input_dim, latent_dim=latent_dim)
-    ae.load_state_dict(torch.load(ae_path, weights_only=True, map_location=device))
-    return ae.encoder.to(device).eval()
-
-
-@torch.no_grad()
-def batched_forward(x_np, module, device, batch_size=1024):
-    x = torch.from_numpy(x_np)
-    out = [
-        module(x[i : i + batch_size].to(device)).cpu()
-        for i in range(0, len(x), batch_size)
-    ]
-    return torch.cat(out).numpy()
-
-
-def oof_predict(input_path, mlp_dir, encoder_dir, latent_dim, folds, device):
-    """Per-fold val predictions concatenated into one OOF vector."""
-    all_probs, all_targets = [], []
-    for k in range(1, folds + 1):
-        X, y = load_pos_neg(input_path, "val", f"*val{k}.npy")
-        if encoder_dir is not None:
-            ae_path = Path(encoder_dir) / f"fold_{k}" / "best_autoencoder.pt"
-            X = batched_forward(
-                X, load_encoder(ae_path, X.shape[1], latent_dim, device), device
-            )
-        mlp_path = Path(mlp_dir) / f"fold_{k}" / "best_model.pt"
-        logits = batched_forward(X, load_mlp(mlp_path, device), device)
-        probs = 1.0 / (1.0 + np.exp(-logits))
-        all_probs.append(probs)
-        all_targets.append(y)
-        print(
-            f"  fold {k}: {len(y)} samples, fold-AUPRC={average_precision_score(y, probs):.4f}"
-        )
-    return np.concatenate(all_probs), np.concatenate(all_targets)
+    return mlp, encoder
 
 
 def create_parser():
     parser = argparse.ArgumentParser(
-        description="Compare MLP variants via out-of-fold validation PR curves."
+        description="Compare models via PR curves on validation data."
     )
     parser.add_argument(
         "--model",
@@ -70,10 +47,10 @@ def create_parser():
         nargs="+",
         required=True,
         metavar="ARG",
-        help="Variant: NAME INPUT_PATH CHECKPOINT_DIR [ENCODER_DIR]. Pass once per model.",
+        help="NAME INPUT_PATH MLP_DIR [AE_DIR]. Pass once per model.",
     )
-    parser.add_argument("--latent-dim", type=int, default=128)
-    parser.add_argument("--folds", type=int, default=6)
+    parser.add_argument("--fold", type=int, default=1)
+    parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--output-dir", default=".")
     return parser
 
@@ -90,33 +67,34 @@ def main():
     results = []
 
     for entry in args.model:
-        if len(entry) not in (3, 4):
-            raise ValueError(
-                f"--model expects 3 or 4 values (NAME INPUT_PATH CHECKPOINT [ENCODER]), got {entry}"
-            )
-        name, input_path, checkpoint = entry[0], entry[1], entry[2]
-        encoder = entry[3] if len(entry) == 4 else None
+        if len(entry) == 4:
+            name, input_path, mlp_dir, ae_dir = entry
+        elif len(entry) == 3:
+            name, input_path, mlp_dir = entry
+            ae_dir = None
+        else:
+            raise ValueError(f"--model expects 3 or 4 args, got {len(entry)}: {entry}")
 
-        print(
-            f"\n[{name}] OOF prediction over {args.folds} val folds "
-            f"(encoder={'yes' if encoder else 'no'})"
-        )
-        probs, targets = oof_predict(
-            input_path, checkpoint, encoder, args.latent_dim, args.folds, device
-        )
+        print(f"\n[{name}] mlp={mlp_dir}, ae={ae_dir or 'none'}")
+        mlp, encoder = load_model(mlp_dir, ae_dir, args.fold, device)
+
+        val_ds = load_dataset(input_path, "val", f"*val{args.fold}.npy")
+        if encoder is not None:
+            val_ds = encode_dataset(val_ds, encoder, device)
+        loader = make_loader(val_ds, args.batch_size)
+        probs, targets, _ = predict_probs(mlp, loader, device)
+
         ap = average_precision_score(targets, probs)
         precision, recall, _ = precision_recall_curve(targets, probs)
-        ax.plot(recall, precision, label=f"{name} (AUPRC={ap:.4f})")
+        ax.plot(recall, precision, label=f"{name} AP={ap:.3f}")
         results.append((name, ap, len(targets), int(targets.sum())))
-        print(
-            f"[{name}] OOF AUPRC = {ap:.6f}  (n={len(targets)}, pos={int(targets.sum())})"
-        )
+        print(f"[{name}] AP={ap:.6f}")
 
     ax.set_xlabel("Recall")
     ax.set_ylabel("Precision")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1.02)
-    ax.set_title("Precision-Recall (out-of-fold validation)")
+    ax.set_title("Precision-Recall comparison")
     ax.legend(loc="best")
     ax.grid(alpha=0.3)
     fig.tight_layout()
@@ -128,7 +106,7 @@ def main():
 
     summary_path = out_dir / "pr_comparison.txt"
     with open(summary_path, "w") as f:
-        f.write("model\tauprc\tn\tpos\n")
+        f.write("model\tap\tn\tpos\n")
         for name, ap, n, pos in results:
             f.write(f"{name}\t{ap:.6f}\t{n}\t{pos}\n")
     print(f"Summary saved to {summary_path}")

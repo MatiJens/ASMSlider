@@ -7,7 +7,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-LOCATION_TOL = 15
+OVERLAP_THRESHOLD = 0.35
 
 
 def load_reference(path, pred_pids=None):
@@ -45,27 +45,33 @@ def load_predictions(path):
     return preds
 
 
-def location_match(ref_region, pred_region, tol):
+def overlap_match(ref_region, pred_region, min_overlap):
     if ref_region[0] is None or ref_region[1] is None:
         return False
-    return abs(pred_region[0] - ref_region[0]) <= tol and abs(pred_region[1] - ref_region[1]) <= tol
+    overlap_start = max(ref_region[0], pred_region[0])
+    overlap_end = min(ref_region[1], pred_region[1])
+    overlap_len = max(0, overlap_end - overlap_start)
+    ref_len = ref_region[1] - ref_region[0]
+    pred_len = pred_region[1] - pred_region[0]
+    if ref_len == 0 or pred_len == 0:
+        return False
+    overlap_frac = overlap_len / min(ref_len, pred_len)
+    return overlap_frac >= min_overlap
 
 
-def evaluate(ref, preds, tol):
-    found_protein = 0
-    found_location = 0
-    ref_proteins_with_pred = set()
+def evaluate(ref, preds, min_overlap=OVERLAP_THRESHOLD):
+    found_overlap = 0
+    matched_proteins = set(preds) & set(ref)
 
-    for pid, pred_regions in preds.items():
-        if pid in ref:
-            ref_proteins_with_pred.add(pid)
-            found_protein += 1
-            ref_regions = ref[pid]
-            if any(location_match((r[0], r[1]), (p[0], p[1]), tol)
-                   for r in ref_regions for p in pred_regions):
-                found_location += 1
+    for pid in matched_proteins:
+        ref_regions = ref[pid]
+        pred_regions = preds[pid]
+        if any(overlap_match((r[0], r[1]), (p[0], p[1]), min_overlap)
+               for r in ref_regions for p in pred_regions):
+            found_overlap += 1
 
-    not_found = len(ref) - len(ref_proteins_with_pred)
+    found_protein = len(matched_proteins)
+    not_found = len(ref) - found_protein
     false_positive = len(set(preds) - set(ref))
 
     n_ref = len(ref)
@@ -74,17 +80,17 @@ def evaluate(ref, preds, tol):
         "total_reference": n_ref,
         "total_predictions": n_pred,
         "found_protein": found_protein,
-        "found_location_exact": found_location,
+        "found_overlap": found_overlap,
         "not_found": not_found,
         "false_positive": false_positive,
         "protein_recall": found_protein / n_ref if n_ref else 0.0,
         "protein_precision": found_protein / n_pred if n_pred else 0.0,
-        "location_recall": found_location / n_ref if n_ref else 0.0,
-        "location_precision": found_location / n_pred if n_pred else 0.0,
+        "overlap_recall": found_overlap / n_ref if n_ref else 0.0,
+        "overlap_precision": found_overlap / n_pred if n_pred else 0.0,
     }
 
 
-def print_metrics(m, tol):
+def print_metrics(m, min_overlap=OVERLAP_THRESHOLD):
     print(f"Reference sequences:  {m['total_reference']}")
     print(f"Predicted sequences:  {m['total_predictions']}")
     print()
@@ -95,15 +101,16 @@ def print_metrics(m, tol):
     print(f"  Precision:   {m['protein_precision']:.4f}")
     print(f"  Recall:      {m['protein_recall']:.4f}")
     print()
-    print(f"--- Location-level (exact position ±{tol} aa) ---")
-    print(f"  Exact match: {m['found_location_exact']}")
-    print(f"  Precision:   {m['location_precision']:.4f}")
-    print(f"  Recall:      {m['location_recall']:.4f}")
+    print(f"--- Overlap-level (>={min_overlap:.0%} sequence overlap) ---")
+    print(f"  Overlap hit: {m['found_overlap']}")
+    print(f"  Precision:   {m['overlap_precision']:.4f}")
+    print(f"  Recall:      {m['overlap_recall']:.4f}")
 
 
 def build_family_colormap(ref):
     families = sorted({asm_id for regions in ref.values()
-                       for _, _, asm_id in regions if _ is not None})
+                       for beg, end, asm_id in regions
+                       if beg is not None and end is not None})
     n = max(len(families), 1)
     cmap_name = "gist_ncar" if n > 20 else "tab20"
     cmap = plt.colormaps.get_cmap(cmap_name).resampled(n)
@@ -113,7 +120,7 @@ def build_family_colormap(ref):
 MAX_PLOT = 75
 
 
-def plot_proteome(ref, preds, tol, output_path):
+def plot_proteome(ref, preds, output_path, min_overlap=OVERLAP_THRESHOLD):
     ref_pids = set(ref)
     top_preds = {}
     for pid, regions in preds.items():
@@ -162,10 +169,10 @@ def plot_proteome(ref, preds, tol, output_path):
                     clip_on=True)
 
         for beg, end, prob in pred_regions:
-            is_match = any(
-                location_match((r[0], r[1]), (beg, end), tol) for r in ref_regions
+            is_overlap = any(
+                overlap_match((r[0], r[1]), (beg, end), min_overlap) for r in ref_regions
             )
-            edge_color = "#2ecc71" if is_match else "#e74c3c"
+            edge_color = "#2ecc71" if is_overlap else "#e74c3c"
             ax.barh(y - bar_h / 2, end - beg, height=bar_h, left=beg,
                     color="none", edgecolor=edge_color, linewidth=1.8,
                     linestyle="--", zorder=3)
@@ -185,7 +192,7 @@ def plot_proteome(ref, preds, tol, output_path):
                                              linewidth=0.6, label=fam))
     legend_handles.append(mpatches.Patch(facecolor="none", edgecolor="#2ecc71",
                                          linewidth=1.8, linestyle="--",
-                                         label=f"Pred (match ±{tol})"))
+                                         label=f"Pred (overlap >={min_overlap:.0%})"))
     legend_handles.append(mpatches.Patch(facecolor="none", edgecolor="#e74c3c",
                                          linewidth=1.8, linestyle="--",
                                          label="Pred (no match)"))
@@ -205,7 +212,8 @@ def create_parser():
     )
     p.add_argument("--predictions", required=True)
     p.add_argument("--reference", required=True)
-    p.add_argument("--tolerance", type=int, default=LOCATION_TOL)
+    p.add_argument("--min-overlap", type=float, default=OVERLAP_THRESHOLD,
+                   help="Minimum fractional overlap to count as a hit (default: 0.35).")
     p.add_argument("--outdir", required=True)
     return p
 
@@ -217,14 +225,14 @@ def main():
 
     preds = load_predictions(args.predictions)
     ref = load_reference(args.reference, pred_pids=set(preds.keys()))
-    metrics = evaluate(ref, preds, args.tolerance)
-    print_metrics(metrics, args.tolerance)
+    metrics = evaluate(ref, preds, args.min_overlap)
+    print_metrics(metrics, args.min_overlap)
 
     with open(outdir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
     print(f"\nMetrics saved to {outdir / 'metrics.json'}")
 
-    plot_proteome(ref, preds, args.tolerance, outdir / "plot.png")
+    plot_proteome(ref, preds, outdir / "plot.png", args.min_overlap)
 
 
 if __name__ == "__main__":

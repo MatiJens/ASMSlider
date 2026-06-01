@@ -1,10 +1,5 @@
-import sys
-from pathlib import Path
-
 import numpy as np
 import torch
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from esm.models.esmc import ESMC
 
@@ -12,8 +7,6 @@ from utils.sequence_loader import load_fasta
 
 torch.backends.cudnn.allow_tf32 = True
 torch.backends.cuda.enable_cudnn_sdp(False)
-
-MAX_SEQ_LEN = 2048  # ESMC model limit
 
 
 class EmbeddingsGenerator:
@@ -48,7 +41,7 @@ class EmbeddingsGenerator:
         """Embed a list of sequences."""
         cls._ensure_model()
         batches = [
-            cls._process_batch([s[:MAX_SEQ_LEN] for s in sequences[i : i + batch_size]], pooling)
+            cls._process_batch(sequences[i : i + batch_size], pooling)
             for i in range(0, len(sequences), batch_size)
         ]
         return np.concatenate(batches, axis=0)

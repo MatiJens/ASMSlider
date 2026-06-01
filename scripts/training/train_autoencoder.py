@@ -68,7 +68,7 @@ def evaluate(model, loader,
         "rec": total_rec / n,
         "cls": total_cls / n,
         "mcc": matthews_corrcoef(targets, preds),
-        "auprc": average_precision_score(targets, probs),
+        "ap": average_precision_score(targets, probs),
     }
 
 

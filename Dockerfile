@@ -26,7 +26,10 @@ RUN pip install --no-cache-dir \
     scikit-learn \
     matplotlib \
     seaborn \
-    biopython
+    biopython \
+    mlflow \
+    optuna \
+    optuna-integration[mlflow]
 
 RUN pip install --no-cache-dir \
     git+https://github.com/evolutionaryscale/esm.git@v3.2.3

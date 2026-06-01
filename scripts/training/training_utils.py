@@ -1,4 +1,19 @@
+import math
+
 import torch
+
+
+def _isnan(v):
+    return v is None or math.isnan(v)
+
+
+def _log_metric(key, value, step):
+    try:
+        import mlflow
+        if mlflow.active_run():
+            mlflow.log_metric(key, value, step=step)
+    except ImportError:
+        pass
 
 
 def train_loop(
@@ -26,8 +41,16 @@ def train_loop(
         train_losses.append(train_loss)
         val_losses.append(val_loss)
 
+        _log_metric("train_loss", train_loss, epoch)
+        for k, v in metrics.items():
+            _log_metric(k, v, epoch)
+
         parts = " | ".join(f"{k}: {v:.6f}" for k, v in metrics.items())
         print(f"Epoch {epoch:3d} | train_loss: {train_loss:.6f} | {parts}")
+
+        if val_loss is None or _isnan(train_loss) or _isnan(val_loss):
+            print(f"NaN detected at epoch {epoch}, stopping early")
+            break
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
