@@ -4,83 +4,39 @@
 For each threshold under <proteome_dir>/scan_results/<thr>/, draws one figure showing
 every protein with at least one predicted ASM motif. Each protein row contains:
   - a grey background bar spanning the protein length
-  - predicted ASM motifs (dashed): green if they overlap a true ASM reference (>=45%),
-    red otherwise; the prediction probability is annotated
   - true ASM motifs from asm_reference.tsv (filled box) -- skipped when positions are absent
   - PFAM domains from pfam_references.tsv (filled box)
+  - predicted ASM motifs (dashed), coloured by how they relate to the references:
+    green if they cover a true ASM (>=45%), blue if the protein carries a PFAM
+    reference, red otherwise; the prediction probability is annotated
 """
 import argparse
-import csv
-import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
+from scan_common import (
+    find_proteome_fasta,
+    load_asm_refs,
+    load_pfam_refs,
+    load_protein_lengths,
+    load_scan,
+    overlap_len,
+)
 
 OVERLAP_FRAC = 0.45
-PFAM_NEAR_AA = 35
 
-
-def load_refs(path):
-    refs = {}
-    if not path.exists():
-        return refs
-    with open(path) as f:
-        reader = csv.reader(f, delimiter="\t")
-        next(reader, None)
-        for row in reader:
-            if not row:
-                continue
-            sid = row[0]
-            beg_s = row[1].strip() if len(row) > 1 else ""
-            end_s = row[2].strip() if len(row) > 2 else ""
-            if beg_s in ("", "NA", "None", "-") or end_s in ("", "NA", "None", "-"):
-                refs.setdefault(sid, []).append((None, None))
-            else:
-                refs.setdefault(sid, []).append((int(beg_s), int(end_s)))
-    return refs
-
-
-def load_scan(path):
-    with open(path) as f:
-        data = json.load(f)
-    hits = []
-    for h in data:
-        b, e = h["location"].split("-")
-        hits.append({
-            "sid": h["protein"],
-            "beg": int(b),
-            "end": int(e),
-            "prob": float(h.get("probability", 0.0)),
-        })
-    return hits
-
-
-def load_protein_lengths(fasta_path):
-    lengths = {}
-    sid, n = None, 0
-    with open(fasta_path) as f:
-        for line in f:
-            line = line.rstrip()
-            if line.startswith(">"):
-                if sid is not None:
-                    lengths[sid] = n
-                sid = line[1:].split()[0]
-                n = 0
-            else:
-                n += len(line)
-        if sid is not None:
-            lengths[sid] = n
-    return lengths
-
-
-def overlap_len(a_beg, a_end, b_beg, b_end):
-    return max(0, min(a_end, b_end) - max(a_beg, b_beg) + 1)
+ASM_COLOR = "#2a9d8f"
+ASM_EDGE = "#13524a"
+PFAM_COLOR = "#f4a261"
+PFAM_EDGE = "#9c5a25"
+PRED_PFAM_COLOR = "#1d6fb8"
+PRED_OTHER_COLOR = "#e63946"
 
 
 def predicted_matches_asm(hit, asm_regions):
-    """True if hit covers >=OVERLAP_FRAC of any positioned asm ref on the same protein."""
+    """True if hit covers >=OVERLAP_FRAC of any positioned ASM ref on the same protein."""
     for ab, ae in asm_regions:
         if ab is None:
             continue
@@ -90,15 +46,9 @@ def predicted_matches_asm(hit, asm_regions):
     return False
 
 
-def predicted_near_pfam(hit, pfam_regions, window=PFAM_NEAR_AA):
-    """True if hit lies within `window` AA of any positioned PFAM region (or overlaps it)."""
-    for pb, pe in pfam_regions:
-        if pb is None:
-            continue
-        gap = max(hit["beg"] - pe, pb - hit["end"], 0)
-        if gap <= window:
-            return True
-    return False
+def predicted_in_pfam_protein(pfam_regions):
+    """True if the protein carries any positioned PFAM reference (distance ignored)."""
+    return any(pb is not None for pb, _pe, _acc in pfam_regions)
 
 
 def plot_panel(sids, by_sid, asm, pfam, lengths, out_path, title):
@@ -107,83 +57,76 @@ def plot_panel(sids, by_sid, asm, pfam, lengths, out_path, title):
     fig, ax = plt.subplots(figsize=(16, fig_h))
 
     max_x = 0
-    for i, sid in enumerate(sids):
-        y = i
+    for y, sid in enumerate(sids):
         plen = lengths.get(sid, 0)
         if plen <= 0:
-            # fallback: span of features
             ends = [h["end"] for h in by_sid[sid]]
             ends += [e for _, e in asm.get(sid, []) if e is not None]
-            ends += [e for _, e in pfam.get(sid, []) if e is not None]
+            ends += [e for _, e, _acc in pfam.get(sid, []) if e is not None]
             plen = max(ends) if ends else 1
         max_x = max(max_x, plen)
 
-        # protein background bar
         ax.add_patch(Rectangle((0, y - row_h / 2), plen, row_h,
                                facecolor="#ececec", edgecolor="#bbbbbb", linewidth=0.5))
 
-        # PFAM (drawn first so motifs overlay)
-        for pb, pe in pfam.get(sid, []):
+        # PFAM domains first so predicted motifs overlay them.
+        for pb, pe, acc in pfam.get(sid, []):
             if pb is None:
                 continue
             ax.add_patch(Rectangle((pb, y - row_h / 2), pe - pb + 1, row_h,
-                                   facecolor="#f4a261", edgecolor="#9c5a25",
+                                   facecolor=PFAM_COLOR, edgecolor=PFAM_EDGE,
                                    linewidth=0.6, alpha=0.85))
-            ax.text((pb + pe) / 2, y, "PFAM", ha="center", va="center",
-                    fontsize=7, color="white")
+            ax.text((pb + pe) / 2, y, acc, ha="center", va="center",
+                    fontsize=14, fontweight="bold", color="white")
 
-        # true ASM motifs (positioned only)
         for ab, ae in asm.get(sid, []):
             if ab is None:
                 continue
             ax.add_patch(Rectangle((ab, y - row_h / 2), ae - ab + 1, row_h,
-                                   facecolor="#2a9d8f", edgecolor="#13524a",
-                                   linewidth=0.6))
+                                   facecolor=ASM_COLOR, edgecolor=ASM_EDGE, linewidth=0.6))
             ax.text((ab + ae) / 2, y, "ASM", ha="center", va="center",
-                    fontsize=7, color="white")
+                    fontsize=10, color="white")
 
-        # predicted motifs: green if overlaps a true ASM, blue if near PFAM, else red
         asm_regions = asm.get(sid, [])
         pfam_regions = pfam.get(sid, [])
         for h in by_sid[sid]:
             if predicted_matches_asm(h, asm_regions):
-                color = "#2a9d8f"
-            elif predicted_near_pfam(h, pfam_regions):
-                color = "#1d6fb8"
+                color = ASM_COLOR
+            elif predicted_in_pfam_protein(pfam_regions):
+                color = PRED_PFAM_COLOR
             else:
-                color = "#e63946"
-            ax.add_patch(Rectangle((h["beg"], y - row_h / 2),
-                                   h["end"] - h["beg"] + 1, row_h,
+                color = PRED_OTHER_COLOR
+            ax.add_patch(Rectangle((h["beg"], y - row_h / 2), h["end"] - h["beg"] + 1, row_h,
                                    facecolor="none", edgecolor=color,
                                    linewidth=1.4, linestyle="--"))
             ax.text((h["beg"] + h["end"]) / 2, y + row_h / 2 + 0.05,
-                    f"{h['prob']:.2f}", ha="center", va="bottom",
-                    fontsize=6, color=color)
+                    f"{h['prob']:.2f}", ha="center", va="bottom", fontsize=9, color=color)
 
     ax.set_yticks(range(len(sids)))
-    ax.set_yticklabels(sids, fontsize=8)
+    ax.set_yticklabels(sids, fontsize=11)
     ax.set_ylim(-0.8, len(sids) - 0.2)
     ax.invert_yaxis()
     ax.set_xlim(0, max_x * 1.02)
-    ax.set_xlabel("Position (aa)")
-    ax.set_title(title)
+    ax.set_xlabel("Position (aa)", fontsize=14)
+    ax.tick_params(axis="x", labelsize=12)
+    ax.set_title(title, fontsize=16)
     ax.grid(axis="x", linestyle=":", linewidth=0.5, alpha=0.5)
     for s in ("top", "right", "left"):
         ax.spines[s].set_visible(False)
 
     legend_handles = [
-        Rectangle((0, 0), 1, 1, facecolor="#2a9d8f", edgecolor="#13524a", label="True ASM"),
-        Rectangle((0, 0), 1, 1, facecolor="#f4a261", edgecolor="#9c5a25", label="PFAM"),
-        Rectangle((0, 0), 1, 1, facecolor="none", edgecolor="#2a9d8f",
+        Rectangle((0, 0), 1, 1, facecolor=ASM_COLOR, edgecolor=ASM_EDGE, label="True ASM"),
+        Rectangle((0, 0), 1, 1, facecolor=PFAM_COLOR, edgecolor=PFAM_EDGE,
+                  label="PFAM (NLR / effector)"),
+        Rectangle((0, 0), 1, 1, facecolor="none", edgecolor=ASM_COLOR,
                   linestyle="--", linewidth=1.4,
-                  label=f"Pred (ASM match >={int(OVERLAP_FRAC*100)}%)"),
-        Rectangle((0, 0), 1, 1, facecolor="none", edgecolor="#1d6fb8",
-                  linestyle="--", linewidth=1.4,
-                  label=f"Pred (near PFAM +/-{PFAM_NEAR_AA} aa)"),
-        Rectangle((0, 0), 1, 1, facecolor="none", edgecolor="#e63946",
+                  label=f"Pred (ASM match >={int(OVERLAP_FRAC * 100)}%)"),
+        Rectangle((0, 0), 1, 1, facecolor="none", edgecolor=PRED_PFAM_COLOR,
+                  linestyle="--", linewidth=1.4, label="Pred (same protein as PFAM)"),
+        Rectangle((0, 0), 1, 1, facecolor="none", edgecolor=PRED_OTHER_COLOR,
                   linestyle="--", linewidth=1.4, label="Pred (other)"),
     ]
-    ax.legend(handles=legend_handles, loc="upper right", fontsize=8, framealpha=0.9)
+    ax.legend(handles=legend_handles, loc="upper right", fontsize=11, framealpha=0.9)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
@@ -195,10 +138,8 @@ def plot_threshold(threshold, hits, asm, pfam, lengths, out_dir, proteome_name, 
     for h in hits:
         by_sid.setdefault(h["sid"], []).append(h)
 
-    def has_ref(sid):
-        return sid in asm or sid in pfam
-
-    sids = sorted(by_sid.keys(), key=lambda s: (not has_ref(s), s))
+    # Proteins carrying a reference are plotted first.
+    sids = sorted(by_sid, key=lambda s: (s not in asm and s not in pfam, s))
     if not sids:
         print(f"[{threshold}] no predictions -- skipping")
         return
@@ -207,10 +148,9 @@ def plot_threshold(threshold, hits, asm, pfam, lengths, out_dir, proteome_name, 
     for idx, page in enumerate(pages, 1):
         suffix = f"_p{idx:02d}" if len(pages) > 1 else ""
         out_path = out_dir / f"scan_plot_{threshold}{suffix}.png"
+        page_note = f", page {idx}/{len(pages)}" if len(pages) > 1 else ""
         title = (f"ASM predictions vs reference -- {proteome_name} "
-                 f"(threshold {threshold}"
-                 + (f", page {idx}/{len(pages)}" if len(pages) > 1 else "")
-                 + ")")
+                 f"(threshold {threshold}{page_note})")
         plot_panel(page, by_sid, asm, pfam, lengths, out_path, title)
     print(f"[{threshold}] {len(sids)} proteins -> {len(pages)} page(s) in {out_dir}")
 
@@ -229,19 +169,14 @@ def main():
     args = ap.parse_args()
 
     pdir = Path(args.proteome_dir)
-    asm = load_refs(pdir / "asm_reference.tsv")
-    pfam = load_refs(pdir / "pfam_references.tsv")
-
-    fastas = list(pdir.glob("*.fasta"))
-    if not fastas:
-        raise SystemExit(f"No .fasta found in {pdir}")
-    lengths = load_protein_lengths(fastas[0])
+    asm = load_asm_refs(pdir / "asm_reference.tsv")
+    pfam = load_pfam_refs(pdir / "pfam_references.tsv")
+    lengths = load_protein_lengths(find_proteome_fasta(pdir))
 
     out_dir = Path(args.out_dir) if args.out_dir else (pdir / "scan_plots")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    scan_root = pdir / "scan_results"
-    for th_dir in sorted(scan_root.iterdir()):
+    for th_dir in sorted((pdir / "scan_results").iterdir()):
         if not th_dir.is_dir():
             continue
         if args.only_thresholds and th_dir.name not in args.only_thresholds:

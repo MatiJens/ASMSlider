@@ -119,6 +119,15 @@ def main():
     coords = reducer.fit_transform(all_emb)
     print("UMAP done")
 
+    plt.rcParams.update({
+        "font.size": 16,
+        "axes.titlesize": 20,
+        "axes.labelsize": 18,
+        "legend.fontsize": 15,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+    })
+
     fig, ax = plt.subplots(figsize=(8, 6))
     for i, label in enumerate(labels):
         mask = group_ids == i
