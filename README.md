@@ -29,9 +29,6 @@ scripts/
   evaluation/                model and slider benchmarking
   utils/                     shared dataset, loss and metric helpers
   tools/                     scan-result evaluation, plotting and data-prep utilities
-proteomes/                   per-proteome inputs, references and scan results
-models_weights/              trained model checkpoints
-results/                     evaluation outputs and figures
 Dockerfile                   CUDA + Python 3.12 runtime with ESM-C
 ```
 
